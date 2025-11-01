@@ -1,21 +1,10 @@
-# +required The configuration file schema version
-schemaVersion: 1.0
-
-# +optional Incoming connection details for the component
+schemaVersion: "1.2"
 endpoints:
-  # +required Unique name for the endpoint.
-  # This name will be used when generating the managed API
-  - name: news-events-service-endpoint
-    # +optional Display name for the endpoint.
-    displayName: News & Events Service Endpoint
-    # +required Service section has the user service endpoint details
-    service:
-      # +required Numeric port value that gets exposed via the endpoint
-      port: 9091
-    # +required Type of traffic that the endpoint is accepting.
-    # Allowed values: REST, GraphQL, GRPC, TCP, UDP.
-    type: REST
-    # +optional Network level visibilities of the endpoint.
-    # Accepted values: Project|Organization|Public(Default).
-    networkVisibilities:
-      - Project
+    - name: news-events-service-endpoint
+      displayName: News & Events Service Endpoint
+      service:
+        basePath: /
+        port: 9091
+      type: REST
+      networkVisibilities:
+        - Project
