@@ -1,0 +1,8 @@
+[package]
+org = "lsf"
+name = "news_events_service"
+version = "0.1.0"
+distribution = "2201.10.4"
+
+[build-options]
+observabilityIncluded = true
