@@ -19,8 +19,6 @@ import ballerina/log;
 import ballerina/time;
 
 configurable int port = 9091;
-configurable string[] allowedOrigins = ["*"]; // Allowed origins for CORS
-configurable boolean corsAllowCredentials = false;
 
 // Sample data structure - Replace with your actual data source (database, external API, etc.)
 // Events data type matching frontend expectations
@@ -28,15 +26,6 @@ configurable boolean corsAllowCredentials = false;
 
 listener http:Listener httpListener = new (port);
 
-@http:ServiceConfig {
-    cors: {
-        allowOrigins: allowedOrigins,
-        allowCredentials: corsAllowCredentials,
-        allowHeaders: ["Content-Type"],
-        allowMethods: ["GET", "OPTIONS"],
-        maxAge: 3600
-    }
-}
 service / on httpListener {
 
     function init() returns error? {
@@ -47,11 +36,11 @@ service / on httpListener {
     # Get all events
     #
     # + return - Events map or error
-    resource function get events() returns map<Event>|http:InternalServerError {
+    isolated resource function get events() returns map<Event>|http:InternalServerError {
         log:printInfo("Fetching events");
         
         // TODO: Replace with actual data source (database query, external API call, etc.)
-        map<Event> events = getSampleEvents();
+        map<Event> events = {};// getSampleEvents();
         
         if events.length() == 0 {
             log:printWarn("No events found");
