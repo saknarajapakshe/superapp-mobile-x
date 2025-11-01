@@ -155,7 +155,7 @@ function getSampleNews() returns NewsItem[] {
     NewsItem[] news = [
         {
             title: "LSF Super App v0.1 Launched",
-            description: "<p>Lanka Software Foundation has announced the launch of the initial version of the Open Super App — a framework for building modular super apps.</p>",
+            description: "<p>Lanka Software Foundation has launched the initial version of the Open Super App For its internal usage — a framework for building super apps with a focus on modularity and reusability.</p>",
             pubDate: "Mon, 1 Nov 2025 10:00:00 +0000",
             guid: "news-001-2025-11-01"
         }
