@@ -1,5 +1,8 @@
 # Memo App
 
+<p align="center">
+  <img src="image.png" alt="alt text" width="300"/>
+</p>
 This folder contains the Memo microapp: a small app for composing, sending and viewing memos. The microapp is split into two main parts:
 
 - `backend/` — Go service exposing a small REST API
