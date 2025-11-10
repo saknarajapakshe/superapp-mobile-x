@@ -5,7 +5,7 @@ import { bridge } from './bridge';
 const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://192.168.1.100:8080/api';
 
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: API_URL + '/api',
 });
 
 api.interceptors.request.use(async (config) => {
