@@ -9,12 +9,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
 // JWTClaims represents the expected claims in the JWT token
 type JWTClaims struct {
-	Email  string `json:"email"`  // User's email address
+	Email string `json:"email"` // User's email address
 }
 
 var jwksCache jwk.Set
@@ -64,9 +65,8 @@ func AuthMiddleware() gin.HandlerFunc {
 		// Parse and validate the JWT token
 		token, err := jwt.Parse(
 			[]byte(tokenString),
-			// jwt.WithKeySet(jwksCache),
-			jwt.WithValidate(false),
-			jwt.WithVerify(false),
+			jwt.WithKeySet(jwksCache, jws.WithInferAlgorithmFromKey(true)),
+			jwt.WithValidate(true),
 		)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
