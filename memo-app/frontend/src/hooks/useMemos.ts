@@ -190,17 +190,21 @@ export const useMemos = (userEmail: string) => {
       deletingRef.current.add(id);
       setDeletingMemoIds(prev => new Set(prev).add(id));
       
-      // Delete from BOTH storage and server to prevent re-sync
-      await Promise.all([
-        bridge.deleteMemo(id),
-        deleteServerMemo(id)
-      ]);
+      // Delete from local storage
+      await bridge.deleteMemo(id);
       
-      // Remove from UI after successful delete
+      // Immediately update UI - don't wait for storage reload to prevent showing stale cache
       setReceivedMemos(prev => prev.filter(m => m.id !== id));
+      
+      // Verify deletion by reloading from storage to ensure no cache issues
+      const updatedMemos = await bridge.getSavedMemos();
+      setReceivedMemos(updatedMemos);
     } catch (error) {
       console.error('Failed to delete memo:', error);
       await bridge.showAlert(UI_TEXT.ALERT_ERROR, UI_TEXT.ALERT_DELETE_FAILED);
+      // Reload from storage to show current state
+      const currentMemos = await bridge.getSavedMemos();
+      setReceivedMemos(currentMemos);
     } finally {
       deletingRef.current.delete(id);
       setDeletingMemoIds(prev => {
