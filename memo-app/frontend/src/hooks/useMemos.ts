@@ -190,8 +190,11 @@ export const useMemos = (userEmail: string) => {
       deletingRef.current.add(id);
       setDeletingMemoIds(prev => new Set(prev).add(id));
       
-      // Delete from storage FIRST
-      await bridge.deleteMemo(id);
+      // Delete from BOTH storage and server to prevent re-sync
+      await Promise.all([
+        bridge.deleteMemo(id),
+        deleteServerMemo(id)
+      ]);
       
       // Remove from UI after successful delete
       setReceivedMemos(prev => prev.filter(m => m.id !== id));
