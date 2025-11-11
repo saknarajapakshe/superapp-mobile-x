@@ -1,0 +1,7 @@
+{
+  "name": "Memo App",
+  "description": "A micro app for taking and managing memos",
+  "appId": "memoapp",
+  "isMandatory": 0,
+  "clientId": "memoapp"
+}

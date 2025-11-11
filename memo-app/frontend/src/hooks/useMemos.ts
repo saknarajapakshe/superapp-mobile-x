@@ -1,22 +1,43 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { bridge } from '../bridge';
 import { getSentMemos, getReceivedMemos, deleteMemo as deleteServerMemo, updateMemoStatus, sendMemo } from '../api';
 import { Memo, ReceivedMemo } from '../types';
 import { UI_TEXT, CONFIG } from '../constants';
 
 /**
- * Custom hook for managing memos (sent and received)
+ * Custom hook for managing memos - simplified and straightforward
  */
 export const useMemos = (userEmail: string) => {
+  // Core state - simple and clear
   const [sentMemos, setSentMemos] = useState<Memo[]>([]);
   const [receivedMemos, setReceivedMemos] = useState<ReceivedMemo[]>([]);
-  const [sentOffset, setSentOffset] = useState(0);
-  const [receivedOffset, setReceivedOffset] = useState(0);
   const [hasMoreSent, setHasMoreSent] = useState(true);
   const [hasMoreReceived, setHasMoreReceived] = useState(true);
   const [loadingSent, setLoadingSent] = useState(false);
   const [loadingReceived, setLoadingReceived] = useState(false);
   const [initialLoadingReceived, setInitialLoadingReceived] = useState(true);
+  const [deletingMemoIds, setDeletingMemoIds] = useState<Set<string>>(new Set());
+  
+  // Simple refs for pagination and preventing duplicate operations
+  const sentOffsetRef = useRef(0);
+  const receivedOffsetRef = useRef(0);
+  const loadingSentRef = useRef(false);
+  const loadingReceivedRef = useRef(false);
+  const deletingRef = useRef<Set<string>>(new Set());
+
+  // Reset all state when user changes
+  useEffect(() => {
+    if (!userEmail) {
+      setSentMemos([]);
+      setReceivedMemos([]);
+      sentOffsetRef.current = 0;
+      receivedOffsetRef.current = 0;
+      setHasMoreSent(true);
+      setHasMoreReceived(true);
+      setDeletingMemoIds(new Set());
+      deletingRef.current = new Set();
+    }
+  }, [userEmail]);
 
   // Load initial received memos from async storage on mount
   useEffect(() => {
@@ -37,36 +58,56 @@ export const useMemos = (userEmail: string) => {
 
 
   const loadSentMemos = useCallback(async (append: boolean = false) => {
-    if (!userEmail || loadingSent) return;
+    // Prevent concurrent requests
+    if (!userEmail || loadingSentRef.current) return;
     
+    loadingSentRef.current = true;
     setLoadingSent(true);
+    
+    // Clear existing memos when refreshing (not appending)
+    if (!append) {
+      setSentMemos([]);
+      sentOffsetRef.current = 0;
+    }
+    
     try {
-      const offset = append ? sentOffset : 0;
+      const offset = append ? sentOffsetRef.current : 0;
       const memos = await getSentMemos(CONFIG.PAGE_SIZE, offset);
       
-      // Always use functional update to avoid race conditions
-      if (append) {
-        setSentMemos(prev => [...prev, ...memos]);
-      } else {
-        // Don't clear existing memos until we have new data
-        setSentMemos(memos);
-      }
+      // Calculate new offset
+      const newOffset = append ? (offset + memos.length) : memos.length;
+      sentOffsetRef.current = newOffset;
       
+      // Simple: append or replace
+      setSentMemos(prev => append ? [...prev, ...memos] : memos);
       setHasMoreSent(memos.length === CONFIG.PAGE_SIZE);
-      setSentOffset(offset + memos.length);
     } catch (error) {
       console.error('Failed to load sent memos:', error);
+      // On error, show empty if not appending
+      if (!append) {
+        setSentMemos([]);
+      }
     } finally {
       setLoadingSent(false);
+      loadingSentRef.current = false;
     }
-  }, [userEmail, loadingSent, sentOffset]);
+  }, [userEmail]);
 
   const loadReceivedMemos = useCallback(async (append: boolean = false) => {
-    if (loadingReceived) return;
+    // Prevent concurrent requests
+    if (loadingReceivedRef.current) return;
     
+    loadingReceivedRef.current = true;
     setLoadingReceived(true);
+    
     try {
-      const offset = append ? receivedOffset : 0;
+      const offset = append ? receivedOffsetRef.current : 0;
+      
+      // Reset offset when not appending
+      if (!append) {
+        receivedOffsetRef.current = 0;
+      }
+      
       // Fetch from server
       const serverMemos = await getReceivedMemos(CONFIG.PAGE_SIZE, offset);
       
@@ -99,39 +140,73 @@ export const useMemos = (userEmail: string) => {
       }
       
       // Load all saved memos and display
-      // Don't clear existing memos until we have new data to prevent flickering
       const allMemos = await bridge.getSavedMemos();
       setReceivedMemos(allMemos);
       
+      // Update offset properly
+      const newOffset = append ? (offset + serverMemos.length) : serverMemos.length;
+      receivedOffsetRef.current = newOffset;
       setHasMoreReceived(serverMemos.length === CONFIG.PAGE_SIZE);
-      setReceivedOffset(append ? offset + serverMemos.length : serverMemos.length);
     } catch (error) {
       console.error('Failed to load received memos:', error);
       await bridge.showAlert(UI_TEXT.ALERT_ERROR, UI_TEXT.ALERT_LOAD_FAILED);
     } finally {
       setLoadingReceived(false);
+      loadingReceivedRef.current = false;
     }
-  }, [loadingReceived, receivedOffset]);
+  }, []);
 
-  const deleteSentMemo = async (id: string) => {
+  const deleteSentMemo = useCallback(async (id: string) => {
+    // Prevent duplicate deletes
+    if (deletingRef.current.has(id)) return;
+    
     try {
+      deletingRef.current.add(id);
+      setDeletingMemoIds(prev => new Set(prev).add(id));
+      
+      // Delete from server FIRST
       await deleteServerMemo(id);
-      setSentMemos(sentMemos.filter(m => m.id !== id));
+      
+      // Remove from UI after successful server delete
+      setSentMemos(prev => prev.filter(m => m.id !== id));
     } catch (error) {
+      console.error('Failed to delete memo:', error);
       await bridge.showAlert(UI_TEXT.ALERT_ERROR, UI_TEXT.ALERT_DELETE_FAILED);
-      throw error;
+    } finally {
+      deletingRef.current.delete(id);
+      setDeletingMemoIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
     }
-  };
+  }, []);
 
-  const deleteReceivedMemo = async (id: string) => {
+  const deleteReceivedMemo = useCallback(async (id: string) => {
+    // Prevent duplicate deletes
+    if (deletingRef.current.has(id)) return;
+    
     try {
+      deletingRef.current.add(id);
+      setDeletingMemoIds(prev => new Set(prev).add(id));
+      
+      // Delete from storage FIRST
       await bridge.deleteMemo(id);
-      setReceivedMemos(receivedMemos.filter(m => m.id !== id));
+      
+      // Remove from UI after successful delete
+      setReceivedMemos(prev => prev.filter(m => m.id !== id));
     } catch (error) {
+      console.error('Failed to delete memo:', error);
       await bridge.showAlert(UI_TEXT.ALERT_ERROR, UI_TEXT.ALERT_DELETE_FAILED);
-      throw error;
+    } finally {
+      deletingRef.current.delete(id);
+      setDeletingMemoIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
     }
-  };
+  }, []);
 
   const submitMemo = useCallback(async (
     to: string,
@@ -143,14 +218,12 @@ export const useMemos = (userEmail: string) => {
     try {
       await sendMemo(to, subject, message, isBroadcast, ttlDays);
       await bridge.showAlert(UI_TEXT.ALERT_SUCCESS, UI_TEXT.ALERT_MEMO_SENT);
-      // Reload sent memos to show the new one
-      await loadSentMemos();
       return true;
     } catch (error) {
       await bridge.showAlert(UI_TEXT.ALERT_ERROR, UI_TEXT.ALERT_SEND_FAILED);
       return false;
     }
-  }, [loadSentMemos]);
+  }, []);
 
   return {
     sentMemos,
@@ -165,5 +238,6 @@ export const useMemos = (userEmail: string) => {
     loadingSent,
     loadingReceived,
     initialLoadingReceived,
+    deletingMemoIds,
   };
 };

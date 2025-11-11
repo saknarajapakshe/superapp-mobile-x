@@ -16,6 +16,7 @@ interface MemoListProps {
   hasMore?: boolean;
   loading?: boolean;
   initialLoading?: boolean;
+  deletingIds?: Set<string>;
   onLoadMore?: () => void;
 }
 
@@ -29,6 +30,7 @@ export const MemoList = ({
   hasMore = false,
   loading = false,
   initialLoading = false,
+  deletingIds = new Set(),
   onLoadMore,
 }: MemoListProps) => {
   const [selectedMemo, setSelectedMemo] = useState<ReceivedMemo | Memo | null>(null);
@@ -80,21 +82,16 @@ export const MemoList = ({
 
   return (
     <>
-      {/* Loading indicator when refreshing */}
-      {loading && memos.length > 0 && (
-        <div className="flex items-center justify-center py-3 mb-3 bg-blue-50 rounded-lg border border-blue-200">
-          <Loader2 className="h-4 w-4 animate-spin text-blue-600 mr-2" />
-          <span className="text-sm text-blue-600 font-medium">Refreshing memos...</span>
-        </div>
-      )}
-      
       {memos.map((memo) => {
         const { text: truncatedMessage, isTruncated } = truncateMessage(memo.message);
+        const isDeleting = deletingIds.has(memo.id);
         
         return (
         <div
           key={memo.id}
-          className="tap-highlight bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow"
+          className={`tap-highlight bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-all ${
+            isDeleting ? 'opacity-50 pointer-events-none' : ''
+          }`}
         >
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1 min-w-0">
@@ -140,9 +137,14 @@ export const MemoList = ({
                 variant="ghost"
                 size="icon"
                 onClick={() => onDelete(memo.id)}
-                className="tap-highlight -mr-2 -mt-1 hover:bg-red-50 hover:text-red-600"
+                disabled={isDeleting}
+                className="tap-highlight -mr-2 -mt-1 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
               >
-                <Trash2 className="h-4 w-4" />
+                {isDeleting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
               </Button>
             </div>
           </div>

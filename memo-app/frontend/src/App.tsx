@@ -8,6 +8,7 @@ import { UI_TEXT, CONFIG, TABS, TabType } from './constants';
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>(TABS.RECEIVED);
+  const [shouldRefreshSent, setShouldRefreshSent] = useState(false);
   
   const { userEmail, loading } = useUser();
   
@@ -24,41 +25,50 @@ function App() {
     loadingSent,
     loadingReceived,
     initialLoadingReceived,
+    deletingMemoIds,
   } = useMemos(userEmail);
 
-  // Load received memos on initial mount
+  // Load received memos on mount
   useEffect(() => {
-    loadReceivedMemos(false);
-  }, []); // Run once on mount
+    if (userEmail) {
+      loadReceivedMemos(false);
+    }
+  }, [userEmail, loadReceivedMemos]);
 
-  // Poll for new memos every 10 seconds
+  // Poll for new received memos
   useEffect(() => {
     if (!userEmail) return;
 
     const pollInterval = setInterval(() => {
-      loadReceivedMemos(false); // This now fetches from server and syncs
+      loadReceivedMemos(false);
     }, CONFIG.POLL_INTERVAL_MS);
+    
     return () => clearInterval(pollInterval);
-  }, [userEmail, activeTab, loadReceivedMemos]);
+  }, [userEmail, loadReceivedMemos]);
 
-  // Load sent memos only when switching to sent tab (run once per tab switch)
+  // Load sent memos when switching to sent tab OR when refresh is triggered
   useEffect(() => {
-    if (activeTab === TABS.SENT && userEmail && sentMemos.length === 0) {
-      loadSentMemos(false);
+    if (activeTab === TABS.SENT && userEmail) {
+      if (sentMemos.length === 0 || shouldRefreshSent) {
+        loadSentMemos(false);
+        setShouldRefreshSent(false);
+      }
     }
-  }, [activeTab, userEmail, sentMemos.length, loadSentMemos]);
+  }, [activeTab, userEmail, sentMemos.length, shouldRefreshSent, loadSentMemos]);
 
-  // Handle tab switching with immediate data loading
+  // Simple tab switch - let useEffect handle loading
   const handleTabSwitch = useCallback((tab: TabType) => {
     setActiveTab(tab);
-    
-    // Trigger loading immediately when switching to tabs
-    if (tab === TABS.SENT && userEmail) {
-      loadSentMemos(false);
-    } else if (tab === TABS.RECEIVED && userEmail) {
-      loadReceivedMemos(false);
-    }
-  }, [userEmail, loadSentMemos, loadReceivedMemos]);
+  }, []);
+
+  // After sending, switch to sent tab and trigger refresh with slight delay
+  const handleSendSuccess = useCallback(() => {
+    setActiveTab(TABS.SENT);
+    // Small delay to let the tab switch animation complete, then refresh
+    setTimeout(() => {
+      setShouldRefreshSent(true);
+    }, 1000);
+  }, []);
 
   if (loading) {
     return (
@@ -70,11 +80,6 @@ function App() {
       </div>
     );
   }
-
-  const handleSendSuccess = () => {
-    setActiveTab(TABS.SENT);
-    loadSentMemos(false);
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -166,6 +171,7 @@ function App() {
                   hasMore={hasMoreReceived}
                   loading={loadingReceived}
                   initialLoading={initialLoadingReceived}
+                  deletingIds={deletingMemoIds}
                   onLoadMore={() => loadReceivedMemos(true)}
                 />
               </div>
@@ -192,6 +198,7 @@ function App() {
                   emptySubtitle={UI_TEXT.EMPTY_SENT_SUBTITLE}
                   hasMore={hasMoreSent}
                   loading={loadingSent}
+                  deletingIds={deletingMemoIds}
                   onLoadMore={() => loadSentMemos(true)}
                 />
               </div>
