@@ -85,4 +85,3 @@ Resulting build is under `dist/`.
 
 - If Received tab is empty: press the Refresh button. The UI polls automatically when the tab is active, but you can force a refresh.
 - If the frontend can't reach the backend, set `VITE_API_URL` to the correct value and restart the dev server.
-
