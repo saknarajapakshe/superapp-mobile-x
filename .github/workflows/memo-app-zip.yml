@@ -44,39 +44,76 @@ jobs:
           npm ci --no-audit --progress=false
           npm run build
 
-      - name: Package dist + microapp.json into memo-app.zip
+      - id: package
+        name: Prepare artifact contents
         working-directory: memo-app/frontend
         run: |
           set -euo pipefail
-          # Prepare staging folder with dist contents at root
-          rm -rf build-zip
-          mkdir -p build-zip
-          # Copy dist contents (if any) preserving folder structure
+
+          # Prefer using 'dist' as the artifact contents (most build tools write to dist/).
+          # Only create a temporary 'build-zip' staging folder if 'dist' does not exist.
           if [ -d dist ]; then
-            cp -R dist/. build-zip/
-          fi
-          # Include microapp.json if present
-          if [ -f microapp.json ]; then
-            cp microapp.json build-zip/
+            echo "Using existing 'dist' directory as artifact contents."
+
+            # If microapp.json exists at repo root, copy it into dist so the ZIP has it at the root
+            if [ -f microapp.json ]; then
+              echo "Copying 'microapp.json' into 'dist'..."
+              cp microapp.json dist/
+            else
+              echo "No 'microapp.json' found at repo root to copy into 'dist'."
+            fi
+
+            ARTIFACT_DIR=dist
+          else
+            echo "No 'dist' directory found. Creating temporary 'build-zip' staging folder."
+            rm -rf build-zip
+            mkdir -p build-zip
+
+            # If there is a dist produced in some alternate path, copy it in; otherwise this will just contain microapp.json (if present)
+            if [ -d dist ]; then
+              cp -R dist/. build-zip/
+            fi
+
+            if [ -f microapp.json ]; then
+              echo "Copying 'microapp.json'..."
+              cp microapp.json build-zip/
+            else
+              echo "No 'microapp.json' found to copy."
+            fi
+
+            ARTIFACT_DIR=build-zip
           fi
 
-          # Determine version from microapp.json (fallback to 0.0.0)
-          VERSION=$(node -e "try{const m=require('./microapp.json');console.log((m && m.version)||'0.0.0')}catch(e){console.log('0.0.0')}" )
+          # Determine version from the staged microapp.json (fallback to 0.0.0)
+          VERSION_FILE="$ARTIFACT_DIR/microapp.json"
+          if [ -f "$VERSION_FILE" ]; then
+            VERSION=$(node -e "try{const path=require('path');const m=require(path.resolve(process.argv[1]));console.log((m && m.version)||'0.0.0')}catch(e){console.log('0.0.0')}" "$VERSION_FILE")
+          else
+            VERSION='0.0.0'
+          fi
+
           VERSION_UNDERSCORED=${VERSION//./_}
-          ZIP_NAME="memo_${VERSION_UNDERSCORED}.zip"
+          ARTIFACT_NAME="memo_${VERSION_UNDERSCORED}"
 
-          # Create zip with files placed at the root (no top-level 'dist' folder)
-          (cd build-zip && zip -r ../"${ZIP_NAME}" .)
-          ls -lah "${ZIP_NAME}"
+          # Path relative to the repository root and absolute path for local checks
+          ARTIFACT_PATH_REL="memo-app/frontend/${ARTIFACT_DIR}"
+          ARTIFACT_PATH_ABS="$GITHUB_WORKSPACE/${ARTIFACT_PATH_REL}"
 
-          # Debug: show files in memo-app/frontend and repo root to ensure upload path
-          echo "=== files in memo-app/frontend ==="
-          ls -la ..
-          echo "=== files in repo root (.) ==="
-          ls -la ../..
+          echo "Staging directory '${ARTIFACT_PATH_ABS}' contains:"
+          ls -la "${ARTIFACT_PATH_ABS}"
 
-      - name: Upload memo-app.zip artifact
+          # Export outputs for the upload step (use relative path so the upload action, which runs at repo root, finds it)
+          echo "artifact_name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+          echo "artifact_path=${ARTIFACT_PATH_REL}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: memo-app
-          path: memo-app/frontend/memo_*.zip
+          # This sets the artifact name in GitHub (e.g., "memo_1_0_0").
+          # The action automatically appends .zip, so the downloaded file
+          # will be "memo_1_0_0.zip".
+          name: ${{ steps.package.outputs.artifact_name }}
+          
+          # This is the directory to zip. The action will take all files
+          # *inside* this directory and put them at the root of the zip.
+          path: ${{ steps.package.outputs.artifact_path }}
