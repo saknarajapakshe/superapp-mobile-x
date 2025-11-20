@@ -47,10 +47,6 @@ export const useBridge = () => {
   const requestDownloadFile = useCallback(
     async (options: { url?: string; filename?: string; base64?: string }) => {
       if (inHost) {
-        console.log(
-          "Requesting file download via bridge with options:",
-          options
-        );
         return (window as any).nativebridge.requestDownloadFile(options);
       }
     },

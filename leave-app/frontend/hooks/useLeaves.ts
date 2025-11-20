@@ -41,7 +41,6 @@ export const useLeaves = ({ token, isAdmin, user }: UseLeavesProps) => {
   const refresh = () => setRefreshKey((k) => k + 1);
 
   const balances = useMemo(() => {
-    console.log("Calculating balances with", rawLeaves, user);
     if (!user) return { sick: 0, annual: 0, casual: 0 };
 
     const myActiveLeaves = rawLeaves.filter(
@@ -112,7 +111,6 @@ export const useLeaves = ({ token, isAdmin, user }: UseLeavesProps) => {
 
   const deleteLeave = async (id: string) => {
     if (!token) return;
-    console.log("deleteLeave called for id", id);
     setRawLeaves((prev) => prev.filter((l) => l.id !== id));
     await api.deleteLeave(token, id);
     refresh();

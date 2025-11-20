@@ -54,7 +54,6 @@ export const api = {
   getMe: async (token: string): Promise<UserInfo> => {
     // log response from debugging
     const response = await request<UserInfo>("/me", token);
-    console.log("getMe response:", response);
     return response;
   },
 
