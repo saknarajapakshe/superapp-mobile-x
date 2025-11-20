@@ -24,6 +24,5 @@ CREATE TABLE IF NOT EXISTS leaves (
 );
 
 -- create real admin user if not exists
-INSERT INTO users (id, email, role, sick_allowance, annual_allowance, casual_allowance)
-VALUES ('0', 'admin@example.com', 'admin', 10, 15, 5)
-ON CONFLICT (id) DO NOTHING;
+INSERT IGNORE INTO users (id, email, role, sick_allowance, annual_allowance, casual_allowance)
+VALUES (0, 'admin@example.com', 'admin', 10, 15, 5);
