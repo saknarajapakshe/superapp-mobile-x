@@ -55,10 +55,33 @@ export const useUsers = ({
   ): Promise<void> => {
     if (!token) return;
     try {
+      // Optimistic UI update: update role locally first so UI doesn't go blank
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, role } : u))
+      );
+      // Call backend; if backend returns updated user, we can use it to sync exact user fields
       const updatedUser = await api.updateUserRole(token, userId, role);
-      setUsers((prev) => prev.map((u) => (u.id === userId ? updatedUser : u)));
+      if (
+        updatedUser &&
+        typeof updatedUser === "object" &&
+        "id" in updatedUser
+      ) {
+        setUsers((prev) =>
+          prev.map((u) => (u.id === userId ? updatedUser : u))
+        );
+      }
     } catch (e) {
-      console.error(e);
+      console.error("Failed to update user role", e);
+      // Roll back optimistic update on error by refetching users from the server
+      try {
+        const refreshed = await api.getUsers(token);
+        setUsers(refreshed);
+      } catch (refreshErr) {
+        console.error(
+          "Failed to refresh users after role update failure",
+          refreshErr
+        );
+      }
       throw e;
     }
   };

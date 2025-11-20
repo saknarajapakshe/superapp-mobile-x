@@ -114,7 +114,10 @@ function App() {
           <Admin 
             users={users}
             currentUser={user}
-              updateUserRole={(userId, role) => updateUserRole(userId, role).then(() => { toast.success(`User role updated to ${role}`); })}
+            updateUserRole={(userId, role) => updateUserRole(userId, role)
+              .then(() => { toast.success(`User role updated to ${role}`); })
+              .catch((e) => { toast.error(`Failed to update role: ${e?.message || e}`); })
+            }
             openLimitModal={openLimitModal}
           />
         );
