@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"lsf-leave-backend/internal/constants"
 	"lsf-leave-backend/internal/models"
 	"os"
+	"sync"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
@@ -15,6 +18,7 @@ import (
 
 type Database struct {
 	Conn *sql.DB
+	mu   sync.Mutex
 }
 
 // NewDatabase creates a new database connection
@@ -32,13 +36,66 @@ func NewDatabase() (*Database, error) {
 		return nil, err
 	}
 
+	// Pool tuning - tune according to your workload and DB limits
+	db.SetConnMaxLifetime(time.Duration(constants.ConnMaxLifetimeMinutes) * time.Minute)
+	db.SetMaxIdleConns(constants.MaxIdleConns)
+	db.SetMaxOpenConns(constants.MaxOpenConns)
+
 	if err := db.Ping(); err != nil {
 		return nil, err
 	}
 
+	d := &Database{Conn: db}
+
 	log.Println("Database connection established")
 
-	return &Database{Conn: db}, nil
+	// Background pinger to keep connections fresh and detect problems early.
+	go func(dsn string, database *Database) {
+		ticker := time.NewTicker(time.Duration(constants.PingIntervalSeconds) * time.Second)
+		defer ticker.Stop()
+		failCount := 0
+		for range ticker.C {
+			database.mu.Lock()
+			err := database.Conn.Ping()
+			database.mu.Unlock()
+			if err != nil {
+				log.Printf("DB ping failed: %v", err)
+				failCount++
+			} else {
+				failCount = 0
+				continue
+			}
+
+			// If we've had several consecutive failures, try a reconnect
+			if failCount >= constants.ReconnectFailThreshold {
+				log.Println("Attempting DB reconnect after repeated ping failures")
+				newDB, err := sql.Open("mysql", dsn)
+				if err != nil {
+					log.Printf("reconnect: sql.Open error: %v", err)
+					continue
+				}
+				newDB.SetConnMaxLifetime(time.Duration(constants.ConnMaxLifetimeMinutes) * time.Minute)
+				newDB.SetMaxIdleConns(constants.MaxIdleConns)
+				newDB.SetMaxOpenConns(constants.MaxOpenConns)
+				if err := newDB.Ping(); err != nil {
+					log.Printf("reconnect: ping failed: %v", err)
+					_ = newDB.Close()
+					continue
+				}
+
+				// swap in new connection
+				database.mu.Lock()
+				old := database.Conn
+				database.Conn = newDB
+				database.mu.Unlock()
+				_ = old.Close()
+				log.Println("DB reconnect successful")
+				failCount = 0
+			}
+		}
+	}(dsn, d)
+
+	return d, nil
 }
 
 // Migrate runs the database migrations
