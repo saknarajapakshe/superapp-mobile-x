@@ -1,0 +1,8 @@
+{
+  "name": "Leave App",
+  "description": "A micro app for taking and managing leaves",
+  "appId": "leaveapp",
+  "isMandatory": 0,
+  "clientId": "leaveapp",
+  "version": "1.0.0"
+}
