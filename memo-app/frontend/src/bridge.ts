@@ -1,4 +1,4 @@
-import { ReceivedMemo } from "./types";
+import { ReceivedMemo, Group } from "./types";
 import { isMemoExpired } from "./lib/memoExpiry";
 import { jwtDecode } from "jwt-decode";
 
@@ -9,6 +9,7 @@ const MEMOS_STORAGE_KEY = "memo-app:received-memos";
 const FAVORITES_STORAGE_KEY = "memo-app:favorites";
 const ARCHIVE_STORAGE_KEY = "memo-app:archive";
 const DELETED_IDS_STORAGE_KEY = "memo-app:deleted-ids";
+const GROUPS_STORAGE_KEY = "memo-app:groups";
 
 // Initialize storage managers
 const deletedIdsStorage = new TTLStorage<string>(DELETED_IDS_STORAGE_KEY, 30); // 30 days TTL
@@ -314,6 +315,65 @@ const Bridge = {
     }
     // Fallback to browser alert if bridge not available
     alert(`${title}\n\n${message}`);
+  },
+
+  /**
+   * Save groups to local storage
+   */
+  saveGroups: async (groups: Group[]) => {
+    if (window.nativebridge?.requestSaveLocalData) {
+      try {
+        await window.nativebridge.requestSaveLocalData({
+          key: GROUPS_STORAGE_KEY,
+          value: JSON.stringify(groups),
+        });
+      } catch (error) {
+        console.error("Failed to save groups:", error);
+        throw error;
+      }
+      return;
+    }
+
+    // Fallback for browser testing
+    try {
+      localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(groups));
+    } catch (error) {
+      console.warn("Failed to save groups to localStorage:", error);
+    }
+  },
+
+  /**
+   * Get saved groups from local storage
+   */
+  getGroups: async (): Promise<Group[]> => {
+    if (window.nativebridge?.requestGetLocalData) {
+      const result = await window.nativebridge.requestGetLocalData({
+        key: GROUPS_STORAGE_KEY,
+      });
+
+      if (result.value) {
+        try {
+          const parsed: Group[] = JSON.parse(result.value);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+          console.error("Failed to parse saved groups:", error);
+          return [];
+        }
+      }
+      return [];
+    }
+
+    // Fallback for browser testing
+    try {
+      const stored = localStorage.getItem(GROUPS_STORAGE_KEY);
+      if (stored) {
+        const parsed: Group[] = JSON.parse(stored);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    } catch (error) {
+      console.warn("Failed to load groups from localStorage:", error);
+    }
+    return [];
   },
 };
 

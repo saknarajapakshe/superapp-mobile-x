@@ -48,3 +48,9 @@ declare global {
 }
 
 
+export interface Group {
+  id: string;
+  name: string;
+  recipients: string[];
+  createdAt: number;
+}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Send, Loader2, ChevronDown, ChevronUp, Users, Check } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -7,6 +7,7 @@ import { cn } from '../lib/utils';
 import { bridge } from '../bridge';
 import { UI_TEXT } from '../constants';
 import { MultiEmailInput } from './MultiEmailInput';
+import { Group } from '../types';
 
 interface MemoFormProps {
   onSuccess: () => void;
@@ -24,6 +25,20 @@ export const MemoForm = ({ onSuccess, onSubmit, knownUsers = [] }: MemoFormProps
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sendingProgress, setSendingProgress] = useState<{ current: number; total: number } | null>(null);
+  const [groups, setGroups] = useState<Group[]>([]);
+
+  useEffect(() => {
+    loadGroups();
+  }, []);
+
+  const loadGroups = async () => {
+    try {
+      const loadedGroups = await bridge.getGroups();
+      setGroups(loadedGroups);
+    } catch (error) {
+      console.error('Failed to load groups:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,6 +92,7 @@ export const MemoForm = ({ onSuccess, onSubmit, knownUsers = [] }: MemoFormProps
             emails={recipients}
             onChange={setRecipients}
             suggestions={knownUsers}
+            groups={groups}
             disabled={isBroadcast}
             placeholder={isBroadcast ? "Broadcast to all users" : "Add recipients..."}
           />

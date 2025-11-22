@@ -75,7 +75,8 @@ export type TabType =
   | "received"
   | "archive"
   | "more"
-  | "favorites";
+  | "favorites"
+  | "groups";
 export const TABS = {
   SEND: "send" as TabType,
   SENT: "sent" as TabType,
@@ -83,4 +84,5 @@ export const TABS = {
   ARCHIVE: "archive" as TabType,
   MORE: "more" as TabType,
   FAVORITES: "favorites" as TabType,
+  GROUPS: "groups" as TabType,
 } as const;

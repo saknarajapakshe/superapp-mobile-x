@@ -1,11 +1,13 @@
 import { useState, KeyboardEvent, CSSProperties } from 'react';
 import { X, Plus } from 'lucide-react';
 import { AutocompleteInput } from './AutocompleteInput';
+import { Group } from '../types';
 
 interface MultiEmailInputProps {
     emails: string[];
     onChange: (emails: string[]) => void;
     suggestions: string[];
+    groups?: Group[];
     disabled?: boolean;
     placeholder?: string;
     className?: string;
@@ -18,6 +20,7 @@ export const MultiEmailInput = ({
     emails,
     onChange,
     suggestions,
+    groups = [],
     disabled,
     placeholder = "Add recipients...",
     className,
@@ -27,12 +30,38 @@ export const MultiEmailInput = ({
 
     const validateEmail = (email: string) => EMAIL_REGEX.test(email.trim());
 
-    const addEmail = (email: string) => {
-        const trimmed = email.trim().toLowerCase();
+    const addEmail = (value: string) => {
+        const trimmed = value.trim();
         if (!trimmed) return;
-        if (!validateEmail(trimmed)) return setError('Invalid email format');
-        if (emails.includes(trimmed)) return setError('Email already added');
-        onChange([...emails, trimmed]);
+
+        // Check if value matches a group name
+        const matchedGroup = groups.find(g => g.name.toLowerCase() === trimmed.toLowerCase());
+        if (matchedGroup) {
+            const newEmails = [...emails];
+            let addedCount = 0;
+
+            matchedGroup.recipients.forEach(email => {
+                if (!newEmails.includes(email.toLowerCase())) {
+                    newEmails.push(email.toLowerCase());
+                    addedCount++;
+                }
+            });
+
+            if (addedCount > 0) {
+                onChange(newEmails);
+                setInputValue('');
+                setError('');
+            } else {
+                setError('All members already added');
+            }
+            return;
+        }
+
+        // If not a group, validate as email
+        const email = trimmed.toLowerCase();
+        if (!validateEmail(email)) return setError('Invalid email format');
+        if (emails.includes(email)) return setError('Email already added');
+        onChange([...emails, email]);
         setInputValue('');
         setError('');
     };
@@ -53,10 +82,40 @@ export const MultiEmailInput = ({
     const handleAutocompleteChange = (value: string) => {
         setInputValue(value);
         setError('');
+
+        // Check if value matches a group name
+        const matchedGroup = groups.find(g => g.name.toLowerCase() === value.toLowerCase());
+        if (matchedGroup) {
+            // Add all recipients from the group
+            const newEmails = [...emails];
+            let addedCount = 0;
+
+            matchedGroup.recipients.forEach(email => {
+                if (!newEmails.includes(email.toLowerCase())) {
+                    newEmails.push(email.toLowerCase());
+                    addedCount++;
+                }
+            });
+
+            if (addedCount > 0) {
+                onChange(newEmails);
+                setInputValue('');
+            } else {
+                setError('All members already added');
+            }
+            return;
+        }
+
         if (suggestions.some(s => s.toLowerCase() === value.toLowerCase())) {
             addEmail(value);
         }
     };
+
+    // Combine suggestions with group names
+    const allSuggestions = [
+        ...groups.map(g => g.name),
+        ...suggestions
+    ];
 
     // Inline style objects (vanilla CSS)
     const containerStyle: CSSProperties = {
@@ -117,7 +176,7 @@ export const MultiEmailInput = ({
                 <AutocompleteInput
                     value={inputValue}
                     onChange={handleAutocompleteChange}
-                    suggestions={suggestions.filter(s => !emails.includes(s.toLowerCase()))}
+                    suggestions={allSuggestions.filter(s => !emails.includes(s.toLowerCase()))}
                     placeholder={emails.length ? 'Add another...' : placeholder}
                     disabled={disabled}
                     className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"

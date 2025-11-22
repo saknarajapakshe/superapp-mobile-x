@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Inbox, MailOpen, Edit3, RefreshCw, Loader2, Archive, MoreHorizontal, Star, ChevronLeft } from 'lucide-react';
+import { Inbox, MailOpen, Edit3, RefreshCw, Loader2, Archive, MoreHorizontal, Star, ChevronLeft, Users } from 'lucide-react';
 import { MemoForm } from './components/MemoForm';
 import { MemoList } from './components/MemoList';
+import { GroupManager } from './components/GroupManager';
 import { useUser } from './hooks/useUser';
 import { useMemos } from './hooks/useMemos';
 import { UI_TEXT, CONFIG, TABS, TabType } from './constants';
@@ -419,9 +420,25 @@ function App() {
                   <p className="text-sm text-slate-500">View archived messages</p>
                 </div>
               </button>
+
+              <button
+                onClick={() => handleTabSwitch(TABS.GROUPS)}
+                className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors active:scale-[0.98]"
+              >
+                <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center">
+                  <Users className="w-6 h-6 text-slate-600" />
+                </div>
+                <div className="flex-1 text-left">
+                  <h3 className="font-semibold text-slate-900">Manage Groups</h3>
+                  <p className="text-sm text-slate-500">Create and edit recipient groups</p>
+                </div>
+              </button>
             </div>
           </div>
         );
+
+      case TABS.GROUPS:
+        return <GroupManager knownUsers={knownUsers} />;
 
       case TABS.SEND:
         return <MemoForm onSuccess={handleSendSuccess} onSubmit={submitMemo} knownUsers={knownUsers} />;
@@ -446,7 +463,7 @@ function App() {
       {/* Sticky Header */}
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          {(activeTab === TABS.SENT || activeTab === TABS.ARCHIVE || activeTab === TABS.SEND) && (
+          {(activeTab === TABS.SENT || activeTab === TABS.ARCHIVE || activeTab === TABS.SEND || activeTab === TABS.GROUPS) && (
             <button
               onClick={() => setActiveTab(TABS.MORE)}
               className="-ml-2 p-2 rounded-full text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
@@ -455,7 +472,7 @@ function App() {
             </button>
           )}
           <h1 className="text-lg font-bold tracking-tight text-slate-900">
-            {activeTab === TABS.SEND ? 'New Message' : activeTab === TABS.SENT ? 'Sent' : activeTab === TABS.ARCHIVE ? 'Archive' : activeTab === TABS.MORE ? 'More' : activeTab === TABS.FAVORITES ? 'Favorites' : 'Feed'}
+            {activeTab === TABS.SEND ? 'New Message' : activeTab === TABS.SENT ? 'Sent' : activeTab === TABS.ARCHIVE ? 'Archive' : activeTab === TABS.MORE ? 'More' : activeTab === TABS.FAVORITES ? 'Favorites' : activeTab === TABS.GROUPS ? 'Groups' : 'Feed'}
           </h1>
         </div>
         <div className="flex items-center gap-2">
