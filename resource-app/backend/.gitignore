@@ -30,6 +30,3 @@ go.work
 .DS_Store
 Thumbs.db
 
-# Build artifacts
-server
-main
