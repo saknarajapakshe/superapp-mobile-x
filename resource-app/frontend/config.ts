@@ -8,6 +8,6 @@ export const APP_CONFIG = {
   DATE_FORMAT: 'yyyy-MM-dd',
   TIME_FORMAT: 'HH:mm',
 
-  // API Config
-  API_BASE_URL: 'http://192.168.1.100:8082/api'
+  // API Config - use environment variable in production
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.100:8082/api'
 };

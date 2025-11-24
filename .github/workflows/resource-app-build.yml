@@ -1,10 +1,10 @@
-name: Package Memo App Frontend
+name: Package Resource App Frontend
 
 on:
   push:
     branches: [main]
     paths:
-      - 'memo-app/frontend/**'
+      - 'resource-app/frontend/**'
   workflow_dispatch:
 
 jobs:
@@ -21,33 +21,33 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Cache npm (memo-app/frontend)
+      - name: Cache npm (resource-app/frontend)
         uses: actions/cache@v4
         with:
           path: |
-            memo-app/frontend/node_modules
+            resource-app/frontend/node_modules
             ~/.npm
-          key: ${{ runner.os }}-memoapp-node-${{ hashFiles('memo-app/frontend/package-lock.json') }}
+          key: ${{ runner.os }}-resourceapp-node-${{ hashFiles('resource-app/frontend/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-memoapp-node-
+            ${{ runner.os }}-resourceapp-node-
 
-      - name: Create memo-app .env from secret
+      - name: Create resource-app .env from secret
         run: |
-          mkdir -p memo-app/frontend
-          cat > memo-app/frontend/.env <<'EOF'
-          VITE_API_URL=${{ secrets.MEMO_VITE_API_URL }}
+          mkdir -p resource-app/frontend
+          cat > resource-app/frontend/.env <<'EOF'
+          VITE_API_BASE_URL=${{ secrets.RESOURCE_VITE_API_BASE_URL }}
           EOF
         # Do not set working-directory so path is evaluated from repo root
 
       - name: Install dependencies and build
-        working-directory: memo-app/frontend
+        working-directory: resource-app/frontend
         run: |
           npm ci --no-audit --progress=false
           npm run build
 
       - id: package
         name: Prepare artifact contents
-        working-directory: memo-app/frontend
+        working-directory: resource-app/frontend
         run: |
           set -euo pipefail
 
@@ -94,10 +94,10 @@ jobs:
           fi
 
           VERSION_UNDERSCORED=${VERSION//./_}
-          ARTIFACT_NAME="memo_${VERSION_UNDERSCORED}"
+          ARTIFACT_NAME="resource_${VERSION_UNDERSCORED}"
 
           # Path relative to the repository root and absolute path for local checks
-          ARTIFACT_PATH_REL="memo-app/frontend/${ARTIFACT_DIR}"
+          ARTIFACT_PATH_REL="resource-app/frontend/${ARTIFACT_DIR}"
           ARTIFACT_PATH_ABS="$GITHUB_WORKSPACE/${ARTIFACT_PATH_REL}"
 
           echo "Staging directory '${ARTIFACT_PATH_ABS}' contains:"
@@ -110,9 +110,9 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          # This sets the artifact name in GitHub (e.g., "memo_1_0_0").
+          # This sets the artifact name in GitHub (e.g., "resource_1_0_0").
           # The action automatically appends .zip, so the downloaded file
-          # will be "memo_1_0_0.zip".
+          # will be "resource_1_0_0.zip".
           name: ${{ steps.package.outputs.artifact_name }}
           
           # This is the directory to zip. The action will take all files

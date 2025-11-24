@@ -1,0 +1,7 @@
+{
+    "name": "Resource Booking",
+    "appId": "resource-app",
+    "version": "1.0.0",
+    "description": "Book and manage shared resources like meeting rooms, equipment, and vehicles",
+    "clientId": "resource-app"
+}

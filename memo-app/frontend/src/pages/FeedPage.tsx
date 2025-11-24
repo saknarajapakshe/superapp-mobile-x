@@ -66,7 +66,6 @@ export const FeedPage = () => {
                 emptySubtitle={UI_TEXT.EMPTY_RECEIVED_SUBTITLE}
                 hasMore={false} // Pagination not implemented for received yet in context
                 loading={loadingReceived}
-                initialLoading={loadingReceived && receivedMemos.length === 0}
                 onLoadMore={() => { }}
             />
         </div>

@@ -18,7 +18,6 @@ interface MemoListProps {
   emptySubtitle: string;
   hasMore?: boolean;
   loading?: boolean;
-  initialLoading?: boolean;
   deletingIds?: Set<string>;
   onLoadMore?: () => void;
 }
@@ -34,7 +33,6 @@ export const MemoList = ({
   emptySubtitle,
   hasMore = false,
   loading = false,
-  initialLoading = false,
   deletingIds = new Set(),
   onLoadMore,
 }: MemoListProps) => {
