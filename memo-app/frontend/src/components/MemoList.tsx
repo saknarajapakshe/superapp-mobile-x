@@ -48,32 +48,32 @@ export const MemoList = ({
     return { text: message.slice(0, CHARACTER_LIMIT) + '...', isTruncated: true };
   };
 
-  // Show loading skeleton when initially loading from async storage
-  if (initialLoading) {
-    return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="bg-white rounded-xl border border-slate-200 p-4 animate-pulse"
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex-1 space-y-2">
-                <div className="h-5 bg-slate-200 rounded w-2/3"></div>
-                <div className="h-4 bg-slate-200 rounded w-1/2"></div>
-              </div>
-              <div className="h-8 w-8 bg-slate-200 rounded"></div>
-            </div>
-            <div className="space-y-2 mb-3">
-              <div className="h-4 bg-slate-200 rounded w-full"></div>
-              <div className="h-4 bg-slate-200 rounded w-5/6"></div>
-            </div>
-            <div className="h-3 bg-slate-200 rounded w-1/4"></div>
-          </div>
-        ))}
-      </div>
-    );
-  }
+  // // Show loading skeleton when initially loading from async storage
+  // if (initialLoading) {
+  //   return (
+  //     <div className="space-y-3">
+  //       {[1, 2, 3].map((i) => (
+  //         <div
+  //           key={i}
+  //           className="bg-white rounded-xl border border-slate-200 p-4 animate-pulse"
+  //         >
+  //           <div className="flex items-start justify-between mb-3">
+  //             <div className="flex-1 space-y-2">
+  //               <div className="h-5 bg-slate-200 rounded w-2/3"></div>
+  //               <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+  //             </div>
+  //             <div className="h-8 w-8 bg-slate-200 rounded"></div>
+  //           </div>
+  //           <div className="space-y-2 mb-3">
+  //             <div className="h-4 bg-slate-200 rounded w-full"></div>
+  //             <div className="h-4 bg-slate-200 rounded w-5/6"></div>
+  //           </div>
+  //           <div className="h-3 bg-slate-200 rounded w-1/4"></div>
+  //         </div>
+  //       ))}
+  //     </div>
+  //   );
+  // }
 
   if (memos.length === 0) {
     return (
