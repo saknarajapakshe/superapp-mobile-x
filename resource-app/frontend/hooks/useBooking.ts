@@ -19,7 +19,7 @@ export const useBooking = (resource: Resource, onSuccess: () => void) => {
   const [date, setDate] = useState(initialDate);
   const [duration, setDuration] = useState(APP_CONFIG.DEFAULT_DURATION_MINUTES);
   const [startTime, setStartTime] = useState<string>(''); // "HH:mm"
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<Record<string, unknown>>({});
 
   // --- Logic ---
   const minStartTime = useMemo(() => {
@@ -28,9 +28,9 @@ export const useBooking = (resource: Resource, onSuccess: () => void) => {
 
   // Get existing bookings for display and conflict check
   const existingBookings = useMemo(() => {
-    return bookings.filter(b => 
-      b.resourceId === resource.id && 
-      b.status !== BookingStatus.CANCELLED && 
+    return bookings.filter(b =>
+      b.resourceId === resource.id &&
+      b.status !== BookingStatus.CANCELLED &&
       b.status !== BookingStatus.REJECTED &&
       b.start.startsWith(date) // Simple string match for same day
     ).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
@@ -42,7 +42,7 @@ export const useBooking = (resource: Resource, onSuccess: () => void) => {
 
     const startDateTime = new Date(`${date}T${startTime}:00`);
     const endDateTime = addMinutes(startDateTime, duration);
-    
+
     // 1. Past check
     if (isBefore(startDateTime, new Date())) return { valid: false, message: 'Cannot book in the past', conflict: null };
 
@@ -57,8 +57,8 @@ export const useBooking = (resource: Resource, onSuccess: () => void) => {
     });
 
     if (conflict) {
-        const range = `${format(new Date(conflict.start), APP_CONFIG.TIME_FORMAT)} - ${format(new Date(conflict.end), APP_CONFIG.TIME_FORMAT)}`;
-        return { valid: false, message: `Overlaps: ${range}`, conflict };
+      const range = `${format(new Date(conflict.start), APP_CONFIG.TIME_FORMAT)} - ${format(new Date(conflict.end), APP_CONFIG.TIME_FORMAT)}`;
+      return { valid: false, message: `Overlaps: ${range}`, conflict };
     }
 
     return { valid: true, message: 'Available', conflict: null };
@@ -69,8 +69,8 @@ export const useBooking = (resource: Resource, onSuccess: () => void) => {
     const segments = [];
     const startVisual = APP_CONFIG.VISUAL_START_HOUR;
     const endVisual = APP_CONFIG.VISUAL_END_HOUR;
-    
-    const startOfDay = new Date(`${date}T${startVisual.toString().padStart(2, '0')}:00:00`); 
+
+    const startOfDay = new Date(`${date}T${startVisual.toString().padStart(2, '0')}:00:00`);
     const endOfDay = new Date(`${date}T${endVisual.toString().padStart(2, '0')}:00:00`);
     const totalMinutes = (endOfDay.getTime() - startOfDay.getTime()) / 60000;
 
@@ -84,9 +84,9 @@ export const useBooking = (resource: Resource, onSuccess: () => void) => {
       const effectiveEnd = bEnd > endOfDay ? endOfDay : bEnd;
 
       if (effectiveEnd > effectiveStart) {
-         const startPct = Math.max(0, (effectiveStart.getTime() - startOfDay.getTime()) / 60000 / totalMinutes * 100);
-         const widthPct = Math.min(100, (effectiveEnd.getTime() - effectiveStart.getTime()) / 60000 / totalMinutes * 100);
-         segments.push({ left: startPct, width: widthPct, type: 'booked' });
+        const startPct = Math.max(0, (effectiveStart.getTime() - startOfDay.getTime()) / 60000 / totalMinutes * 100);
+        const widthPct = Math.min(100, (effectiveEnd.getTime() - effectiveStart.getTime()) / 60000 / totalMinutes * 100);
+        segments.push({ left: startPct, width: widthPct, type: 'booked' });
       }
     });
 
@@ -98,31 +98,59 @@ export const useBooking = (resource: Resource, onSuccess: () => void) => {
       const effectiveEnd = selfEnd > endOfDay ? endOfDay : selfEnd;
 
       if (effectiveEnd > effectiveStart) {
-         const startPct = Math.max(0, (effectiveStart.getTime() - startOfDay.getTime()) / 60000 / totalMinutes * 100);
-         const widthPct = Math.min(100, (effectiveEnd.getTime() - effectiveStart.getTime()) / 60000 / totalMinutes * 100);
-         segments.push({ left: startPct, width: widthPct, type: timeStatus.valid ? 'selection' : 'conflict' });
+        const startPct = Math.max(0, (effectiveStart.getTime() - startOfDay.getTime()) / 60000 / totalMinutes * 100);
+        const widthPct = Math.min(100, (effectiveEnd.getTime() - effectiveStart.getTime()) / 60000 / totalMinutes * 100);
+        segments.push({ left: startPct, width: widthPct, type: timeStatus.valid ? 'selection' : 'conflict' });
       }
     }
 
     return segments;
   }, [existingBookings, date, startTime, duration, timeStatus]);
 
-  const handleSubmit = async () => {
-    if (!timeStatus.valid) return;
-    setIsSubmitting(true);
-    const startIso = `${date}T${startTime}:00`;
-    const endIso = addMinutes(new Date(startIso), duration).toISOString();
-    
-    const res = await createBooking({
-      resourceId: resource.id,
-      start: startIso,
-      end: endIso,
-      details: formData
-    });
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-    setIsSubmitting(false);
-    if (res.success) {
-      onSuccess();
+  const handleSubmit = async () => {
+    // Prevent double-submission
+    if (!timeStatus.valid || isSubmitting) return;
+    setValidationError(null);
+
+    // Validate required fields
+    const missingFields = resource.formFields
+      .filter(field => field.required)
+      .filter(field => {
+        const val = formData[field.id];
+        if (field.type === 'boolean') return val === undefined; // Boolean must be explicitly set (true/false)
+        return !val || val === '';
+      });
+
+    if (missingFields.length > 0) {
+      setValidationError(`Please fill in all required fields: ${missingFields.map(f => f.label).join(', ')}`);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Ensure start time is also sent as proper ISO string (UTC)
+      const startDateTime = new Date(`${date}T${startTime}:00`);
+      const startIso = startDateTime.toISOString();
+      const endIso = addMinutes(startDateTime, duration).toISOString();
+
+      const res = await createBooking({
+        resourceId: resource.id,
+        start: startIso,
+        end: endIso,
+        details: formData
+      });
+
+      if (res.success) {
+        onSuccess();
+      } else {
+        setValidationError(res.error || 'Failed to create booking');
+      }
+    } finally {
+      // Always reset loading state, even on error
+      setIsSubmitting(false);
     }
   };
 
@@ -141,6 +169,7 @@ export const useBooking = (resource: Resource, onSuccess: () => void) => {
     timeStatus,
     existingBookings,
     timelineSegments,
-    handleSubmit
+    handleSubmit,
+    validationError,
   };
 };

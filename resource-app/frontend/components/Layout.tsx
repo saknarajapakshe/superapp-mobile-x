@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { cn } from '../utils/cn';
-import { Calendar as CalendarIcon, LayoutGrid, User, Shield } from 'lucide-react';
+import { Calendar as CalendarIcon, LayoutGrid, Shield } from 'lucide-react';
 
 interface HeaderProps {
   title: string;
@@ -25,15 +25,15 @@ interface BottomNavProps {
 
 export const BottomNav = ({ activeTab, onTabChange, showAdmin }: BottomNavProps) => (
   <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-200 pb-safe pt-2 px-6 flex justify-around items-end h-[80px] z-40">
-    <button 
+    <button
       onClick={() => onTabChange('calendar')}
       className={cn("flex flex-col items-center pb-4 w-16 transition-colors", activeTab === 'calendar' ? "text-primary-600" : "text-slate-400 hover:text-slate-600")}
     >
       <CalendarIcon size={24} className="mb-1" />
       <span className="text-[10px] font-medium">Schedule</span>
     </button>
-    
-    <button 
+
+    <button
       onClick={() => onTabChange('catalog')}
       className={cn("flex flex-col items-center pb-4 w-16 transition-colors", activeTab === 'catalog' ? "text-primary-600" : "text-slate-400 hover:text-slate-600")}
     >
@@ -42,7 +42,7 @@ export const BottomNav = ({ activeTab, onTabChange, showAdmin }: BottomNavProps)
     </button>
 
     {showAdmin && (
-      <button 
+      <button
         onClick={() => onTabChange('admin')}
         className={cn("flex flex-col items-center pb-4 w-16 transition-colors", activeTab === 'admin' ? "text-primary-600" : "text-slate-400 hover:text-slate-600")}
       >
@@ -51,12 +51,6 @@ export const BottomNav = ({ activeTab, onTabChange, showAdmin }: BottomNavProps)
       </button>
     )}
 
-    <button 
-      onClick={() => onTabChange('profile')}
-      className={cn("flex flex-col items-center pb-4 w-16 transition-colors", activeTab === 'profile' ? "text-primary-600" : "text-slate-400 hover:text-slate-600")}
-    >
-      <User size={24} className="mb-1" />
-      <span className="text-[10px] font-medium">Profile</span>
-    </button>
+
   </nav>
 );

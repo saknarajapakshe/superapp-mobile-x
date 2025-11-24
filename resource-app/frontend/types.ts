@@ -44,11 +44,11 @@ export interface User {
 export interface Resource {
   id: string;
   name: string;
-  type: string; 
+  type: string;
   description: string;
   isActive: boolean;
   minLeadTimeHours: number;
-  
+
   // Visuals
   icon: string;
   color?: string;
@@ -69,9 +69,9 @@ export interface Booking {
   status: BookingStatus;
   createdAt: string;
   rejectionReason?: string;
-  
+
   // Dynamic Answers
-  details: Record<string, any>;
+  details: Record<string, unknown>;
 }
 
 export interface ResourceUsageStats {
@@ -87,6 +87,7 @@ export interface PublicHoliday {
   date: string; // yyyy-MM-dd
   localName: string;
   name: string;
+  description?: string;
   countryCode: string;
   fixed: boolean;
   global: boolean;

@@ -1,5 +1,5 @@
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { BookingStatus, UserRole } from '../types';
 import { endOfMonth, eachDayOfInterval, isSameDay, getDay, format } from 'date-fns';
@@ -26,7 +26,7 @@ export const useCalendar = () => {
   const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
   const monthEnd = endOfMonth(currentDate);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-  
+
   const startDayIndex = getDay(monthStart);
   const paddingDays = Array(startDayIndex).fill(null);
 
@@ -38,7 +38,7 @@ export const useCalendar = () => {
     return bookings.filter(b => {
       const isActive = b.status !== BookingStatus.CANCELLED && b.status !== BookingStatus.REJECTED;
       const isMine = b.userId === currentUser.id;
-      
+
       if (!isActive) return false;
 
       // Non-admins always see only their own
@@ -49,17 +49,17 @@ export const useCalendar = () => {
     });
   }, [bookings, currentUser, viewMode, isAdmin]);
 
-  const dayEvents = (date: Date) => displayBookings.filter(b => isSameDay(new Date(b.start), date));
-  
-  const selectedDayEvents = useMemo(() => dayEvents(selectedDate), [displayBookings, selectedDate]);
+  const dayEvents = useCallback((date: Date) => displayBookings.filter(b => isSameDay(new Date(b.start), date)), [displayBookings]);
+
+  const selectedDayEvents = useMemo(() => dayEvents(selectedDate), [dayEvents, selectedDate]);
 
   // Get Holiday for specific date
-  const getHolidayForDate = (date: Date) => {
+  const getHolidayForDate = useCallback((date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     return holidays.find(h => h.date === dateStr);
-  };
+  }, [holidays]);
 
-  const selectedDayHoliday = useMemo(() => getHolidayForDate(selectedDate), [holidays, selectedDate]);
+  const selectedDayHoliday = useMemo(() => getHolidayForDate(selectedDate), [getHolidayForDate, selectedDate]);
 
   const getResourceDetails = (resId: string) => resources.find(r => r.id === resId);
   const getUserDetails = (userId: string) => allUsers.find(u => u.id === userId);

@@ -5,6 +5,7 @@ import { Button, Card, Input, Select, Label } from '../components/UI';
 import { format, addMinutes } from 'date-fns';
 import { cn } from '../utils/cn';
 import { useBooking } from '../hooks/useBooking';
+import { APP_CONFIG } from '../config';
 
 interface BookingViewProps {
   resource: Resource;
@@ -20,7 +21,7 @@ export const BookingView = ({ resource, onBack, onSuccess }: BookingViewProps) =
     startTime, setStartTime,
     formData, setFormData,
     timeStatus, existingBookings, timelineSegments,
-    handleSubmit
+    handleSubmit, validationError
   } = useBooking(resource, onSuccess);
 
   return (
@@ -31,16 +32,16 @@ export const BookingView = ({ resource, onBack, onSuccess }: BookingViewProps) =
           <ArrowLeft size={20} />
         </button>
         <div>
-           <h2 className="text-sm font-bold text-slate-900">New Booking</h2>
-           <p className="text-xs text-slate-500">{resource.name}</p>
+          <h2 className="text-sm font-bold text-slate-900">New Booking</h2>
+          <p className="text-xs text-slate-500">{resource.name}</p>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        
+
         {step === 'time' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-            
+
             {/* Resource Specs Summary */}
             {Object.keys(resource.specs).length > 0 && (
               <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
@@ -60,9 +61,9 @@ export const BookingView = ({ resource, onBack, onSuccess }: BookingViewProps) =
             {/* 1. Date Picker */}
             <section>
               <Label>1. Select Date</Label>
-              <Input 
-                type="date" 
-                value={date} 
+              <Input
+                type="date"
+                value={date}
                 onChange={(e) => { setDate(e.target.value); setStartTime(''); }}
                 min={new Date().toISOString().split('T')[0]}
                 className="h-12 text-base"
@@ -73,7 +74,7 @@ export const BookingView = ({ resource, onBack, onSuccess }: BookingViewProps) =
             <section>
               <Label>2. Duration</Label>
               <Card className="flex items-center justify-between p-3 border-slate-200">
-                <button 
+                <button
                   onClick={() => setDuration(Math.max(15, duration - 15))}
                   className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 active:bg-slate-200 transition-colors"
                 >
@@ -85,7 +86,7 @@ export const BookingView = ({ resource, onBack, onSuccess }: BookingViewProps) =
                   </span>
                   <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wide">Length</span>
                 </div>
-                <button 
+                <button
                   onClick={() => setDuration(duration + 15)}
                   className="w-12 h-12 rounded-full bg-primary-50 flex items-center justify-center text-primary-600 active:bg-primary-100 transition-colors"
                 >
@@ -97,34 +98,35 @@ export const BookingView = ({ resource, onBack, onSuccess }: BookingViewProps) =
             {/* 3. Start Time Native Picker */}
             <section>
               <Label>3. Start Time</Label>
-              
+
               {/* Visual Availability Bar */}
               <div className="mb-4 bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
                 <div className="flex justify-between text-[10px] text-slate-400 mb-2 font-medium uppercase">
-                  <span>08:00</span>
-                  <span>12:00</span>
-                  <span>16:00</span>
-                  <span>20:00</span>
+                  {/* for each 4 hours between start and end time */}
+                  {Array.from({ length: (APP_CONFIG.VISUAL_END_HOUR - APP_CONFIG.VISUAL_START_HOUR) / 4 + 1 }, (_, i) => APP_CONFIG.VISUAL_START_HOUR + i * 4).map(hour => (
+                    <span key={hour}>{hour}:00</span>
+                  ))}
+
                 </div>
                 <div className="h-8 bg-slate-100 rounded-lg w-full relative overflow-hidden ring-1 ring-inset ring-slate-200">
-                   {/* Hour Markers */}
-                   {[0, 25, 50, 75, 100].map(p => <div key={p} className="absolute top-0 bottom-0 w-px bg-slate-300/50" style={{ left: `${p}%` }} />)}
-                   
-                   {timelineSegments.map((seg, i) => {
-                     let colorClass = "bg-emerald-500 z-10 border-r border-white/20";
-                     if (seg.type === 'booked') colorClass = "bg-slate-300 border-r border-white/50";
-                     if (seg.type === 'conflict') colorClass = "bg-red-500 z-20 bg-[length:4px_4px] bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)]";
+                  {/* Hour Markers */}
+                  {[0, 25, 50, 75, 100].map(p => <div key={p} className="absolute top-0 bottom-0 w-px bg-slate-300/50" style={{ left: `${p}%` }} />)}
 
-                     return (
-                       <div 
-                         key={i}
-                         className={cn("absolute h-full transition-all duration-300", colorClass)}
-                         style={{ left: `${seg.left}%`, width: `${seg.width}%` }}
-                       />
-                     );
-                   })}
+                  {timelineSegments.map((seg, i) => {
+                    let colorClass = "bg-emerald-500 z-10 border-r border-white/20";
+                    if (seg.type === 'booked') colorClass = "bg-slate-300 border-r border-white/50";
+                    if (seg.type === 'conflict') colorClass = "bg-red-500 z-20 bg-[length:4px_4px] bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)]";
+
+                    return (
+                      <div
+                        key={i}
+                        className={cn("absolute h-full transition-all duration-300", colorClass)}
+                        style={{ left: `${seg.left}%`, width: `${seg.width}%` }}
+                      />
+                    );
+                  })}
                 </div>
-                
+
                 {/* Explicit Booked Times List */}
                 {existingBookings.length > 0 ? (
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -136,36 +138,41 @@ export const BookingView = ({ resource, onBack, onSuccess }: BookingViewProps) =
                     ))}
                   </div>
                 ) : (
-                   <div className="mt-2 text-[10px] text-emerald-600 flex items-center gap-1">
-                      <CheckCircle size={10} />
-                      Entire day available
-                   </div>
+                  <div className="mt-2 text-[10px] text-emerald-600 flex items-center gap-1">
+                    <CheckCircle size={10} />
+                    Entire day available
+                  </div>
                 )}
               </div>
 
               <div className="flex gap-3">
-                 <Input 
-                   type="time" 
-                   value={startTime}
-                   onChange={(e) => setStartTime(e.target.value)}
-                   className={cn(
-                     "h-14 text-xl font-bold tracking-wide text-center flex-1 transition-colors",
-                     !startTime ? "border-slate-200" : timeStatus.valid ? "border-emerald-500 bg-emerald-50/30 text-emerald-900" : "border-red-300 bg-red-50/30 text-red-900"
-                   )}
-                 />
+                <div className="relative flex-1">
+                  <Input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className={cn(
+                      "h-14 text-xl font-bold tracking-wide text-center w-full bg-transparent",
+                      !startTime ? "border-slate-200" : timeStatus.valid ? "border-emerald-500 bg-emerald-50/30 text-emerald-900" : "border-red-300 bg-red-50/30 text-red-900"
+                    )}
+                  />
+                  {!startTime && (
+                    <span className="absolute inset-0 flex items-center justify-center text-sm text-slate-400 pointer-events-none">Tap here to select time</span>
+                  )}
+                </div>
               </div>
-              
+
               {/* Status Feedback */}
               <div className={cn(
                 "mt-3 p-3 rounded-xl text-xs flex items-center gap-2 font-medium transition-all border",
-                !startTime 
-                  ? "opacity-0" 
-                  : timeStatus.valid 
-                    ? "bg-emerald-50 text-emerald-800 border-emerald-100" 
+                !startTime
+                  ? "opacity-0"
+                  : timeStatus.valid
+                    ? "bg-emerald-50 text-emerald-800 border-emerald-100"
                     : "bg-red-50 text-red-800 border-red-100"
               )}>
-                 {timeStatus.valid ? <CheckCircle size={16} /> : <XCircle size={16} />}
-                 {timeStatus.message}
+                {timeStatus.valid ? <CheckCircle size={16} /> : <XCircle size={16} />}
+                {timeStatus.message}
               </div>
             </section>
           </div>
@@ -174,43 +181,43 @@ export const BookingView = ({ resource, onBack, onSuccess }: BookingViewProps) =
         {step === 'form' && (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
             <Card className="bg-slate-50 border-slate-200">
-               <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
-                 <CalendarIcon size={14} />
-                 <span>{format(new Date(date), 'EEE, MMM do')}</span>
-               </div>
-               <div className="flex items-center gap-2 font-bold text-slate-900">
-                 <Clock size={16} className="text-primary-600" />
-                 <span>{startTime} - {format(addMinutes(new Date(`${date}T${startTime}:00`), duration), 'HH:mm')}</span>
-               </div>
+              <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+                <CalendarIcon size={14} />
+                <span>{format(new Date(date), 'EEE, MMM do')}</span>
+              </div>
+              <div className="flex items-center gap-2 font-bold text-slate-900">
+                <Clock size={16} className="text-primary-600" />
+                <span>{startTime} - {format(addMinutes(new Date(`${date}T${startTime}:00`), duration), 'HH:mm')}</span>
+              </div>
             </Card>
 
             <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); }}>
               {resource.formFields.map(field => (
                 <div key={field.id}>
                   <Label required={field.required}>{field.label}</Label>
-                  
+
                   {field.type === 'boolean' && (
                     <div className="flex gap-3">
                       <button
                         type="button"
-                        onClick={() => setFormData({...formData, [field.id]: true})}
+                        onClick={() => setFormData({ ...formData, [field.id]: true })}
                         className={cn(
-                           "flex-1 py-3 rounded-xl border font-medium transition-all",
-                           formData[field.id] === true 
-                              ? "bg-primary-600 text-white border-primary-600 shadow-md" 
-                              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                          "flex-1 py-3 rounded-xl border font-medium transition-all",
+                          formData[field.id] === true
+                            ? "bg-primary-600 text-white border-primary-600 shadow-md"
+                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                         )}
                       >
                         Yes
                       </button>
                       <button
                         type="button"
-                        onClick={() => setFormData({...formData, [field.id]: false})}
+                        onClick={() => setFormData({ ...formData, [field.id]: false })}
                         className={cn(
-                           "flex-1 py-3 rounded-xl border font-medium transition-all",
-                           formData[field.id] === false
-                              ? "bg-slate-700 text-white border-slate-700 shadow-md" 
-                              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                          "flex-1 py-3 rounded-xl border font-medium transition-all",
+                          formData[field.id] === false
+                            ? "bg-slate-700 text-white border-slate-700 shadow-md"
+                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                         )}
                       >
                         No
@@ -219,9 +226,9 @@ export const BookingView = ({ resource, onBack, onSuccess }: BookingViewProps) =
                   )}
 
                   {field.type === 'select' && (
-                    <Select 
+                    <Select
                       required={field.required}
-                      onChange={(e) => setFormData({...formData, [field.id]: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
                       className="h-11"
                       value={formData[field.id] || ''}
                     >
@@ -229,12 +236,12 @@ export const BookingView = ({ resource, onBack, onSuccess }: BookingViewProps) =
                       {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                     </Select>
                   )}
-                  
+
                   {(field.type === 'text' || field.type === 'number') && (
                     <Input
                       type={field.type === 'number' ? 'number' : 'text'}
                       required={field.required}
-                      onChange={(e) => setFormData({...formData, [field.id]: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
                       className="h-11"
                       value={formData[field.id] || ''}
                     />
@@ -248,18 +255,24 @@ export const BookingView = ({ resource, onBack, onSuccess }: BookingViewProps) =
 
       {/* Footer Actions */}
       <div className="p-4 bg-white border-t border-slate-200 shrink-0 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        {validationError && (
+          <div className="mb-3 p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2 text-xs text-red-600 animate-in slide-in-from-bottom-2">
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <span>{validationError}</span>
+          </div>
+        )}
         {step === 'time' ? (
-          <Button 
-            className="w-full h-12 text-base shadow-lg shadow-primary-500/20" 
-            disabled={!timeStatus.valid} 
+          <Button
+            className="w-full h-12 text-base shadow-lg shadow-primary-500/20"
+            disabled={!timeStatus.valid}
             onClick={() => setStep('form')}
           >
             Continue
             <ChevronRight size={18} className="ml-2" />
           </Button>
         ) : (
-          <Button 
-            className="w-full h-12 text-base shadow-lg shadow-primary-500/20" 
+          <Button
+            className="w-full h-12 text-base shadow-lg shadow-primary-500/20"
             isLoading={isSubmitting}
             onClick={handleSubmit}
           >

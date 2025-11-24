@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import React from 'react';
 import { cn } from '../utils/cn';
 import { Loader2, ChevronDown, X } from 'lucide-react';
@@ -43,6 +44,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     );
   }
 );
+Button.displayName = 'Button';
 
 // --- Card ---
 export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
@@ -54,6 +56,7 @@ export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
     />
   )
 );
+Card.displayName = 'Card';
 
 // --- Badge ---
 export const Badge = ({ children, className, variant = 'neutral' }: { children: React.ReactNode, className?: string, variant?: 'neutral' | 'success' | 'warning' | 'danger' | 'primary' }) => {
@@ -87,6 +90,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
     )
   }
 );
+Input.displayName = 'Input';
 
 // --- Label ---
 export const Label = ({ children, className, required }: { children: React.ReactNode, className?: string, required?: boolean }) => (
@@ -116,6 +120,7 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
     </div>
   )
 );
+Select.displayName = 'Select';
 
 // --- Modal ---
 export const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: React.ReactNode }) => {
@@ -146,7 +151,7 @@ export const PageLoader = () => (
 );
 
 // --- Empty State ---
-export const EmptyState = ({ icon: Icon, message }: { icon: any, message: string }) => (
+export const EmptyState = ({ icon: Icon, message }: { icon: React.ElementType, message: string }) => (
   <div className="flex flex-col items-center justify-center h-48 text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
     <Icon className="w-10 h-10 mb-3 opacity-20" />
     <p className="text-sm">{message}</p>

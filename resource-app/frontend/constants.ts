@@ -1,8 +1,9 @@
 
+import React from 'react';
 import { Briefcase, Car, Monitor, Wifi, Box, Zap } from 'lucide-react';
 import { ResourceType } from './types';
 
-export const RESOURCE_ICONS: Record<string, any> = {
+export const RESOURCE_ICONS: Record<string, React.ElementType> = {
   'MEETING_ROOM': Briefcase,
   'CAR': Car,
   'DEVICE': Monitor,

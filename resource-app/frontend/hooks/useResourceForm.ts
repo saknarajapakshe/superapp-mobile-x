@@ -25,7 +25,8 @@ export const useResourceForm = (onClose: () => void, initialData?: Resource) => 
   useEffect(() => {
     if (initialData) {
       const isStandardType = RESOURCE_TYPES.includes(initialData.type as ResourceType);
-      
+
+      // eslint-disable-next-line
       setBasicInfo({
         name: initialData.name,
         type: isStandardType ? initialData.type : 'OTHER',
@@ -52,11 +53,11 @@ export const useResourceForm = (onClose: () => void, initialData?: Resource) => 
   };
 
   const handleAddField = () => {
-    setFormFields([...formFields, { 
-      id: `field_${Date.now()}`, 
-      label: '', 
-      type: 'text', 
-      required: false 
+    setFormFields([...formFields, {
+      id: `field_${Date.now()}`,
+      label: '',
+      type: 'text',
+      required: false
     }]);
   };
   const handleRemoveField = (idx: number) => setFormFields(formFields.filter((_, i) => i !== idx));
@@ -65,41 +66,41 @@ export const useResourceForm = (onClose: () => void, initialData?: Resource) => 
     newFields[idx] = { ...newFields[idx], ...updates };
     // Reset options if type changes from select
     if (updates.type && updates.type !== 'select') {
-        delete newFields[idx].options;
+      delete newFields[idx].options;
     }
     setFormFields(newFields);
   };
   const handleOptionsChange = (idx: number, val: string) => {
-     const newFields = [...formFields];
-     newFields[idx].options = val.split(',').map(s => s.trim());
-     setFormFields(newFields);
+    const newFields = [...formFields];
+    newFields[idx].options = val.split(',').map(s => s.trim());
+    setFormFields(newFields);
   };
 
   const handleSubmit = async () => {
     if (!basicInfo.name || !basicInfo.description) return;
-    
+
     setIsSubmitting(true);
 
     // Convert specs array to record
     const specsRecord: Record<string, string> = {};
     specs.forEach(s => {
-        if (s.key && s.value) specsRecord[s.key] = s.value;
+      if (s.key && s.value) specsRecord[s.key] = s.value;
     });
 
     const finalType = basicInfo.type === 'OTHER' ? basicInfo.customType : basicInfo.type;
 
     const resourceData = {
-        ...basicInfo,
-        type: finalType,
-        specs: specsRecord,
-        formFields: formFields.filter(f => f.label) // Filter empty
+      ...basicInfo,
+      type: finalType,
+      specs: specsRecord,
+      formFields: formFields.filter(f => f.label) // Filter empty
     };
 
     let success = false;
     if (initialData) {
-       success = await updateResource({ ...resourceData, id: initialData.id, isActive: initialData.isActive });
+      success = await updateResource({ ...resourceData, id: initialData.id, isActive: initialData.isActive });
     } else {
-       success = await addResource(resourceData);
+      success = await addResource(resourceData);
     }
 
     setIsSubmitting(false);

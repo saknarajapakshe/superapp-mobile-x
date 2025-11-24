@@ -1,26 +1,26 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Resource, Booking, UserRole, ApiResponse, ResourceUsageStats, BookingStatus, PublicHoliday } from '../types';
-import { api } from '../services/api'; // Import from abstraction layer
+import { client as api } from '../api/client';
 import { holidayService } from '../services/holidayService';
+import { bridge } from '../bridge';
 
 interface AppContextType {
   currentUser: User | null;
-  allUsers: User[];
+  allUsers: User[]; // Kept for admin view if needed, but not for switching
   resources: Resource[];
   bookings: Booking[];
   stats: ResourceUsageStats[];
   holidays: PublicHoliday[];
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
-  switchUser: (userId: string) => void;
   refreshData: () => Promise<void>;
-  createBooking: (data: any) => Promise<ApiResponse<Booking>>;
+  fetchStats: () => Promise<void>;
+  createBooking: (data: Record<string, unknown>) => Promise<ApiResponse<Booking>>;
   cancelBooking: (id: string) => Promise<void>;
   dismissBooking: (id: string) => Promise<void>; // For rejecting proposals/clearing rejected status
-  addResource: (data: any) => Promise<boolean>;
+  addResource: (data: Omit<Resource, 'id'>) => Promise<boolean>;
   updateResource: (data: Resource) => Promise<boolean>;
   deleteResource: (id: string) => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => Promise<void>;
@@ -43,41 +43,50 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const fetchData = async () => {
     setError(null);
     try {
+      // 1. Get current user identity from bridge
+      const tokenData = await bridge.getToken();
+      const userEmail = tokenData.email;
+
+      if (!userEmail) {
+        throw new Error("Could not identify user from token");
+      }
+
       const currentYear = new Date().getFullYear();
-      
-      const [usersRes, resRes, bookRes, statsRes, holidaysData] = await Promise.all([
+
+      const [usersRes, resRes, bookRes, holidaysData] = await Promise.all([
         api.getUsers(),
         api.getResources(),
         api.getBookings(),
-        api.getUtilizationStats(),
         holidayService.getHolidays(currentYear)
       ]);
 
       if (!usersRes.success && usersRes.error?.includes('Network')) {
-          throw new Error(usersRes.error);
+        throw new Error(usersRes.error);
       }
 
       if (usersRes.success && usersRes.data) {
         setAllUsers(usersRes.data);
-        if (currentUser) {
-          const updated = usersRes.data.find(u => u.id === currentUser.id);
-          if (updated) setCurrentUser(updated);
-        } else if (usersRes.data.length > 0) {
-          setCurrentUser(usersRes.data[0]);
+        // Find current user by email
+        const me = usersRes.data.find(u => u.email === userEmail);
+        if (me) {
+          setCurrentUser(me);
+        } else {
+          // Should not happen if backend auto-creates user, but handle gracefully
+          console.warn("User not found in user list despite valid token");
         }
       }
-      
+
       if (resRes.success && resRes.data) setResources(resRes.data);
       if (bookRes.success && bookRes.data) setBookings(bookRes.data);
-      if (statsRes.success && statsRes.data) setStats(statsRes.data);
-      
+
       // Load holidays for current and next year to handle year-boundaries in calendar
       const nextYearHolidays = await holidayService.getHolidays(currentYear + 1);
       setHolidays([...holidaysData, ...nextYearHolidays]);
-      
-    } catch (err: any) {
+
+    } catch (err: unknown) {
       console.error("Failed to load data", err);
-      setError(err.message || "Failed to connect to backend");
+      const msg = err instanceof Error ? err.message : "Failed to connect to backend";
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -87,17 +96,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     fetchData();
   }, []);
 
-  const switchUser = (userId: string) => {
-    const user = allUsers.find(u => u.id === userId);
-    if (user) setCurrentUser(user);
+  const fetchStats = async () => {
+    const statsRes = await api.getUtilizationStats();
+    if (statsRes.success && statsRes.data) setStats(statsRes.data);
   };
 
-  const createBooking = async (data: any) => {
+  const createBooking = async (data: Record<string, unknown>) => {
     const res = await api.createBooking({
       ...data,
       userId: currentUser?.id
     });
-    if (res.success) await fetchData(); 
+    if (res.success) await fetchData();
     return res;
   };
 
@@ -123,27 +132,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return res;
   };
 
-  const addResource = async (data: any) => {
-    const res = await api.addResource(data);
-    if (res.success) {
-      await fetchData();
+  const addResource = async (resourceData: Omit<Resource, 'id'>) => {
+    const res = await api.addResource(resourceData);
+    if (res.success && res.data) {
+      setResources([...resources, res.data]);
       return true;
     }
     return false;
   };
 
-  const updateResource = async (data: Resource) => {
-    const res = await api.updateResource(data);
-    if (res.success) {
-      await fetchData();
+  const updateResource = async (resourceData: Resource) => {
+    const res = await api.updateResource(resourceData);
+    if (res.success && res.data) {
+      setResources(resources.map(r => r.id === resourceData.id ? res.data! : r));
       return true;
     }
     return false;
   };
 
   const deleteResource = async (id: string) => {
-    await api.deleteResource(id);
-    await fetchData();
+    const res = await api.deleteResource(id);
+    if (res.success) {
+      setResources(resources.filter(r => r.id !== id));
+      return true;
+    }
+    return false;
   };
 
   const updateUserRole = async (userId: string, role: UserRole) => {
@@ -161,7 +174,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       holidays,
       isLoading,
       error,
-      switchUser,
       refreshData: fetchData,
       createBooking,
       cancelBooking,
@@ -171,7 +183,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       deleteResource,
       updateUserRole,
       processBooking,
-      rescheduleBooking
+      rescheduleBooking,
+      fetchStats
     }}>
       {children}
     </AppContext.Provider>
