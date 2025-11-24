@@ -1,0 +1,5 @@
+{
+  "name": "ResourceFlow",
+  "description": "A mobile-first resource allocation microapp featuring smart conflict resolution and role-based management.",
+  "requestFramePermissions": []
+}
