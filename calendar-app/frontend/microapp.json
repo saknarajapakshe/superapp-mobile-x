@@ -1,0 +1,7 @@
+{
+  "name": "Calendar",
+  "appId": "calendar-app",
+  "version": "1.0.0",
+  "description": "View Sri Lankan public holidays and plan your schedule",
+  "clientId": "calendar-app"
+}
