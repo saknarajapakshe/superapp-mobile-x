@@ -24,10 +24,25 @@ type Leave struct {
 	Type            string    `json:"type"`
 	StartDate       string    `json:"startDate"`
 	EndDate         string    `json:"endDate"`
+	TotalLeaveDays  int       `json:"totalLeaveDays"`
 	Reason          string    `json:"reason"`
 	Status          string    `json:"status"`
 	ApproverComment *string   `json:"approverComment,omitempty"`
 	CreatedAt       time.Time `json:"createdAt"`
+}
+
+type LeaveDay struct {
+	ID      string    `json:"id"`
+	LeaveID string    `json:"leaveId"`
+	Date    time.Time `json:"date"`
+	IsHalfDay bool    `json:"isHalfDay"`
+	IsMorning *bool   `json:"isMorning,omitempty"` // Only relevant if IsHalfDay is true
+}
+
+type Holiday struct {
+	ID   string `json:"id"`
+	Date string `json:"date"`
+	Name string `json:"name"`
 }
 
 // For POST /api/leaves
@@ -54,4 +69,15 @@ type UpdateLeaveStatusRequest struct {
 // For PUT /api/users/:id/role
 type UpdateUserRoleRequest struct {
 	Role string `json:"role" binding:"required"`
+}
+
+type UpdateLeaveDatesRequest struct {
+	StartDate *string `json:"startDate,omitempty"`
+	EndDate   *string `json:"endDate,omitempty"`
+}
+
+// For PUT /api/leaves/:leaveId/days/:dayId
+type UpdateLeaveDayRequest struct {
+    IsHalfDay bool  `json:"isHalfDay"`
+    IsMorning *bool `json:"isMorning,omitempty"`
 }

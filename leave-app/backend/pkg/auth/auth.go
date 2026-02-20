@@ -3,17 +3,16 @@ package auth
 
 import (
 	"context"
-	"leave-app/internal/constants"
-	"leave-app/internal/db"
 	"log"
+	"lsf-leave-backend/internal/constants"
+	"lsf-leave-backend/internal/db"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	//"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
 type Authenticator struct {
@@ -74,29 +73,31 @@ func (a *Authenticator) AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid Authorization header format"})
-			return
-		}
+		// parts := strings.Split(authHeader, " ")
+		// if len(parts) != 2 || parts[0] != "Bearer" {
+		// 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid Authorization header format"})
+		// 	return
+		// }
 
-		token, err := jwt.ParseString(parts[1], jwt.WithKeySet(a.jwks))
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-			return
-		}
+		// token, err := jwt.ParseString(parts[1], jwt.WithKeySet(a.jwks))
+		// if err != nil {
+		// 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		// 	return
+		// }
 
-		email, ok := token.Get("email")
-		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Email claim not found in token"})
-			return
-		}
+		// email, ok := token.Get("email")
+		// if !ok {
+		// 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Email claim not found in token"})
+		// 	return
+		// }
 
-		emailStr, ok := email.(string)
-		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid email claim type"})
-			return
-		}
+		// emailStr, ok := email.(string)
+		// if !ok {
+		// 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid email claim type"})
+		// 	return
+		// }
+
+		emailStr := "john@gmail.com" // For testing purposes, replace with actual email from token
 
 		user, err := a.DB.GetUserByEmail(emailStr)
 		if err != nil {

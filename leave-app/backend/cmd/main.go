@@ -2,10 +2,10 @@
 package main
 
 import (
-	"leave-app/internal/db"
-	"leave-app/internal/handlers"
-	"leave-app/pkg/auth"
 	"log"
+	"lsf-leave-backend/internal/db"
+	"lsf-leave-backend/internal/handlers"
+	"lsf-leave-backend/pkg/auth"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -43,7 +43,7 @@ func main() {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, PATCH, DELETE")
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
@@ -65,11 +65,16 @@ func main() {
 		api.PUT("/admin/allowances", h.UpdateAllowances)
 		api.PUT("/users/:id/role", h.UpdateUserRole)
 		api.GET("/leaves", h.GetLeaves)
+		api.GET("/leaves/:id", h.GetLeaveByIDHandler)
 		api.POST("/leaves", h.CreateLeave)
-		api.PUT("/leaves/:id", h.UpdateLeave)
+		api.PUT("/leaves/:id", h.UpdateLeave)  // admin only - update status and approver comment
+		api.PATCH("/leaves/:id", h.UpdateLeaveDates) // user can update dates before approval
 		api.DELETE("/leaves/:id", h.DeleteLeave)
 		api.POST("/leaves/:id/approve", h.ApproveLeave)
 		api.POST("/leaves/:id/reject", h.RejectLeave)
+		api.GET("/leaves/:id/days", h.GetLeaveDays)
+		api.PUT("/leaves/:id/days/:dayId", h.UpdateLeaveDay) // Update half-day status of a specific leave(one day)
+		api.GET("/holidays", h.GetHolidays)
 	}
 
 	// A simple health check route

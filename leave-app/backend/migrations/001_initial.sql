@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS leaves (
     type ENUM('sick', 'annual', 'casual') NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
+    total_days INT NOT NULL DEFAULT 0,
     reason TEXT,
     status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
     approver_comment TEXT,
@@ -23,6 +24,14 @@ CREATE TABLE IF NOT EXISTS leaves (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- create real admin user if not exists
+CREATE TABLE IF NOT EXISTS leave_days (
+    id VARCHAR(255) PRIMARY KEY,
+    leave_id VARCHAR(255) NOT NULL,
+    date DATE NOT NULL,
+    FOREIGN KEY (leave_id) REFERENCES leaves(id) ON DELETE CASCADE,
+    UNIQUE KEY uq_leave_date (leave_id, date)
+);
+
+-- create default admin user if not exists
 INSERT IGNORE INTO users (id, email, role, sick_allowance, annual_allowance, casual_allowance)
-VALUES (0, 'admin@example.com', 'admin', 10, 15, 5);
+VALUES ('admin-001', 'admin@example.com', 'admin', 10, 20, 5);

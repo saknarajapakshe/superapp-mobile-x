@@ -2,6 +2,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"io/ioutil"
@@ -100,17 +101,29 @@ func NewDatabase() (*Database, error) {
 
 // Migrate runs the database migrations
 func (db *Database) Migrate() error {
-	query, err := ioutil.ReadFile("migrations/001_initial.sql")
-	if err != nil {
-		return fmt.Errorf("could not read migration file: %w", err)
-	}
+    // List of migration files to run in order
+    migrations := []string{
+        "migrations/001_initial.sql",
+        "migrations/002_holidays.sql",
+        "migrations/003_add_leave_day_fields.sql",
+        "migrations/004_fix_leaves_table.sql",
+    }
 
-	if _, err := db.Conn.Exec(string(query)); err != nil {
-		return fmt.Errorf("could not apply migration: %w", err)
-	}
+    for _, migrationFile := range migrations {
+        query, err := ioutil.ReadFile(migrationFile)
+        if err != nil {
+            return fmt.Errorf("could not read migration file %s: %w", migrationFile, err)
+        }
 
-	log.Println("Database migration applied successfully")
-	return nil
+        if _, err := db.Conn.Exec(string(query)); err != nil {
+            return fmt.Errorf("could not apply migration %s: %w", migrationFile, err)
+        }
+
+        log.Printf("Migration applied: %s", migrationFile)
+    }
+
+    log.Println("Database migration applied successfully")
+    return nil
 }
 
 func (db *Database) GetUserByEmail(email string) (*models.User, error) {
@@ -155,14 +168,14 @@ func (db *Database) UpdateAllUserAllowances(req models.UpdateAllowancesRequest) 
 
 func (db *Database) CreateLeave(leave *models.Leave) error {
 	leave.ID = uuid.New().String()
-	query := "INSERT INTO leaves (id, user_id, type, start_date, end_date, reason, status) VALUES (?, ?, ?, ?, ?, ?, ?)"
-	_, err := db.Conn.Exec(query, leave.ID, leave.UserID, leave.Type, leave.StartDate, leave.EndDate, leave.Reason, leave.Status)
+	query := "INSERT INTO leaves (id, user_id, type, start_date, end_date, total_days, reason, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+	_, err := db.Conn.Exec(query, leave.ID, leave.UserID, leave.Type, leave.StartDate, leave.EndDate, leave.TotalLeaveDays, leave.Reason, leave.Status)
 	return err
 }
 
 func (db *Database) GetAllLeaves() ([]models.Leave, error) {
 	query := `
-		SELECT l.id, l.user_id, u.email, l.type, l.start_date, l.end_date, l.reason, l.status, l.approver_comment, l.created_at
+		SELECT l.id, l.user_id, u.email, l.type, l.start_date, l.end_date, l.total_days, l.reason, l.status, l.approver_comment, l.created_at
 		FROM leaves l
 		JOIN users u ON l.user_id = u.id
 		ORDER BY l.created_at DESC
@@ -176,7 +189,7 @@ func (db *Database) GetAllLeaves() ([]models.Leave, error) {
 	leaves := make([]models.Leave, 0)
 	for rows.Next() {
 		var leave models.Leave
-		if err := rows.Scan(&leave.ID, &leave.UserID, &leave.UserEmail, &leave.Type, &leave.StartDate, &leave.EndDate, &leave.Reason, &leave.Status, &leave.ApproverComment, &leave.CreatedAt); err != nil {
+		if err := rows.Scan(&leave.ID, &leave.UserID, &leave.UserEmail, &leave.Type, &leave.StartDate, &leave.EndDate, &leave.TotalLeaveDays, &leave.Reason, &leave.Status, &leave.ApproverComment, &leave.CreatedAt); err != nil {
 			return nil, err
 		}
 		leaves = append(leaves, leave)
@@ -186,7 +199,7 @@ func (db *Database) GetAllLeaves() ([]models.Leave, error) {
 
 func (db *Database) GetLeavesByUserID(userID string) ([]models.Leave, error) {
 	query := `
-		SELECT l.id, l.user_id, u.email, l.type, l.start_date, l.end_date, l.reason, l.status, l.approver_comment, l.created_at
+		SELECT l.id, l.user_id, u.email, l.type, l.start_date, l.end_date, l.total_days, l.reason, l.status, l.approver_comment, l.created_at
 		FROM leaves l
 		JOIN users u ON l.user_id = u.id
 		WHERE l.user_id = ?
@@ -201,7 +214,7 @@ func (db *Database) GetLeavesByUserID(userID string) ([]models.Leave, error) {
 	leaves := make([]models.Leave, 0)
 	for rows.Next() {
 		var leave models.Leave
-		if err := rows.Scan(&leave.ID, &leave.UserID, &leave.UserEmail, &leave.Type, &leave.StartDate, &leave.EndDate, &leave.Reason, &leave.Status, &leave.ApproverComment, &leave.CreatedAt); err != nil {
+		if err := rows.Scan(&leave.ID, &leave.UserID, &leave.UserEmail, &leave.Type, &leave.StartDate, &leave.EndDate, &leave.TotalLeaveDays, &leave.Reason, &leave.Status, &leave.ApproverComment, &leave.CreatedAt); err != nil {
 			return nil, err
 		}
 		leaves = append(leaves, leave)
@@ -212,12 +225,12 @@ func (db *Database) GetLeavesByUserID(userID string) ([]models.Leave, error) {
 func (db *Database) GetLeaveByID(leaveID string) (*models.Leave, error) {
 	leave := &models.Leave{}
 	query := `
-		SELECT l.id, l.user_id, u.email, l.type, l.start_date, l.end_date, l.reason, l.status, l.approver_comment, l.created_at
+		SELECT l.id, l.user_id, u.email, l.type, l.start_date, l.end_date, l.total_days, l.reason, l.status, l.approver_comment, l.created_at
 		FROM leaves l
 		JOIN users u ON l.user_id = u.id
 		WHERE l.id = ?
 	`
-	err := db.Conn.QueryRow(query, leaveID).Scan(&leave.ID, &leave.UserID, &leave.UserEmail, &leave.Type, &leave.StartDate, &leave.EndDate, &leave.Reason, &leave.Status, &leave.ApproverComment, &leave.CreatedAt)
+	err := db.Conn.QueryRow(query, leaveID).Scan(&leave.ID, &leave.UserID, &leave.UserEmail, &leave.Type, &leave.StartDate, &leave.EndDate, &leave.TotalLeaveDays, &leave.Reason, &leave.Status, &leave.ApproverComment, &leave.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -254,3 +267,166 @@ func (db *Database) DeleteLeave(leaveID string) error {
 	_, err := db.Conn.Exec(query, leaveID)
 	return err
 }
+
+// CreateLeaveDays inserts leave day records for a leave
+func (d *Database) CreateLeaveDays(leaveID string, dates []time.Time) error {
+    for _, date := range dates {
+        dayID := uuid.New().String()
+        _, err := d.Conn.Exec(
+            "INSERT INTO leave_days (id, leave_id, date) VALUES (?, ?, ?)",
+            dayID,
+            leaveID,
+            date,
+        )
+        if err != nil {
+            return err
+        }
+    }
+    return nil
+}
+
+// GetHolidays retrieves all holidays from the database
+func (d *Database) GetHolidays() (map[string]bool, error) {
+	rows, err := d.Conn.Query("SELECT date FROM holidays")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	holidays := make(map[string]bool)
+	for rows.Next() {
+		var date time.Time
+		if err := rows.Scan(&date); err != nil {
+			return nil, err
+		}
+		// Store in YYYY-MM-DD format for easy comparison
+		holidays[date.Format("2006-01-02")] = true
+	}
+	return holidays, nil
+}
+
+// GetAllHolidays retrieves all holidays as a list
+func (d *Database) GetAllHolidays() ([]models.Holiday, error) {
+	rows, err := d.Conn.Query("SELECT id, date, name FROM holidays ORDER BY date")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var holidays []models.Holiday
+	for rows.Next() {
+		var holiday models.Holiday
+		var date time.Time
+		if err := rows.Scan(&holiday.ID, &date, &holiday.Name); err != nil {
+			return nil, err
+		}
+		holiday.Date = date.Format("2006-01-02")
+		holidays = append(holidays, holiday)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return holidays, nil
+}
+
+// GetLeaveDays retrieves all leave day records for a specific leave
+func (d *Database) GetLeaveDays(leaveID string) ([]models.LeaveDay, error) {
+    query := "SELECT id, leave_id, date, is_half_day, is_morning FROM leave_days WHERE leave_id = ? ORDER BY date"
+    rows, err := d.Conn.Query(query, leaveID)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var leaveDays []models.LeaveDay
+    for rows.Next() {
+        var day models.LeaveDay
+        if err := rows.Scan(&day.ID, &day.LeaveID, &day.Date, &day.IsHalfDay, &day.IsMorning); err != nil {
+            return nil, err
+        }
+        leaveDays = append(leaveDays, day)
+    }
+
+    if err := rows.Err(); err != nil {
+        return nil, err
+    }
+
+    return leaveDays, nil
+}
+
+// GetLeaveDayByID retrieves a specific leave day by its ID
+func (d *Database) GetLeaveDayByID(dayID string) (*models.LeaveDay, error) {
+    query := "SELECT id, leave_id, date, is_half_day, is_morning FROM leave_days WHERE id = ?"
+    var day models.LeaveDay
+    err := d.Conn.QueryRow(query, dayID).Scan(&day.ID, &day.LeaveID, &day.Date, &day.IsHalfDay, &day.IsMorning)
+    if err != nil {
+        return nil, err
+    }
+    return &day, nil
+}
+
+// UpdateLeaveDay updates the half-day status of a leave day
+func (d *Database) UpdateLeaveDay(dayID string, isHalfDay bool, isMorning *bool) error {
+    query := "UPDATE leave_days SET is_half_day = ?, is_morning = ? WHERE id = ?"
+    _, err := d.Conn.Exec(query, isHalfDay, isMorning, dayID)
+    return err
+}
+
+// ReplaceLeaveDaysAndUpdateLeave replaces all leave day records for a leave and updates the leave
+func (db *Database) ReplaceLeaveDaysAndUpdateLeave(leaveID, startDate, endDate string, totalDays int, days []time.Time) error {
+    if len(days) == 0 {
+        return fmt.Errorf("no working days in date range")
+    }
+    
+    ctx := context.Background()
+    tx, err := db.Conn.BeginTx(ctx, nil)
+    if err != nil {
+        return err
+    }
+
+    // ensure the leave is pending (prevent races)
+    var status string
+    if err := tx.QueryRowContext(ctx, "SELECT status FROM leaves WHERE id = ? FOR UPDATE", leaveID).Scan(&status); err != nil {
+        tx.Rollback()
+        return err
+    }
+    if status != "pending" {
+        tx.Rollback()
+        return fmt.Errorf("leave not editable (status=%s)", status)
+    }
+
+    if _, err := tx.ExecContext(ctx, "DELETE FROM leave_days WHERE leave_id = ?", leaveID); err != nil {
+        tx.Rollback()
+        return err
+    }
+
+    stmt, err := tx.PrepareContext(ctx, "INSERT INTO leave_days (id, leave_id, date, is_half_day, is_morning) VALUES (?, ?, ?, ?, ?)")
+    if err != nil {
+        tx.Rollback()
+        return err
+    }
+    defer stmt.Close()
+
+    for _, d := range days {
+        id := uuid.New().String()
+        if _, err := stmt.ExecContext(ctx, id, leaveID, d.Format("2006-01-02"), false, nil); err != nil {
+            tx.Rollback()
+            return err
+        }
+    }
+
+    res, err := tx.ExecContext(ctx, "UPDATE leaves SET start_date = ?, end_date = ?, total_days = ? WHERE id = ?", startDate, endDate, totalDays, leaveID)
+    if err != nil {
+        tx.Rollback()
+        return err
+    }
+    if ra, _ := res.RowsAffected(); ra == 0 {
+        tx.Rollback()
+        return fmt.Errorf("leave not found")
+    }
+
+    return tx.Commit()
+}
+
