@@ -1,0 +1,7 @@
+{
+  "name": "Pay Slip",
+  "appId": "pay-slip-app",
+  "version": "1.0.0",
+  "description": "View and download employee pay slips",
+  "clientId": "pay-slip-app"
+}
