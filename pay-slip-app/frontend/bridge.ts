@@ -39,7 +39,8 @@ export const bridge = {
     try {
       const stored = localStorage.getItem(key);
       return stored ? JSON.parse(stored) : defaultValue;
-    } catch {
+    } catch (error) {
+      console.error("Failed to read/parse localStorage item:", error);
       return defaultValue;
     }
   },
