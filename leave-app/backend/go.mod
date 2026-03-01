@@ -1,4 +1,4 @@
-module lsf-leave-backend
+module leave-app
 
 go 1.25.4
 

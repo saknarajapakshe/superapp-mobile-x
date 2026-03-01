@@ -1,11 +1,4 @@
--- migrations/002_holidays.sql
-
-CREATE TABLE IF NOT EXISTS holidays (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    date DATE NOT NULL UNIQUE,
-    name VARCHAR(255) NOT NULL
-);
-
+-- 002_insert_seed_data.sql
 
 INSERT IGNORE INTO holidays (date, name) VALUES
 -- 2026 Sri Lankan Holidays

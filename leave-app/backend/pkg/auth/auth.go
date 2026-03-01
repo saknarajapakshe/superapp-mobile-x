@@ -3,24 +3,27 @@ package auth
 
 import (
 	"context"
+	"leave-app/internal/constants"
+	"leave-app/internal/models"
+	"leave-app/internal/service"
 	"log"
-	"lsf-leave-backend/internal/constants"
-	"lsf-leave-backend/internal/db"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lestrrat-go/jwx/v2/jwk"
-	//"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
 type Authenticator struct {
-	DB   *db.Database
-	jwks jwk.Set
+	UserService *service.UserService
+	jwks        jwk.Set
+	cancelRefresh context.CancelFunc
 }
 
-func New(db *db.Database) (*Authenticator, error) {
+func New(userService *service.UserService) (*Authenticator, error) {
 	jwksURL := os.Getenv("JWKS_URL")
 	if jwksURL == "" {
 		log.Fatal("JWKS_URL environment variable not set")
@@ -35,14 +38,22 @@ func New(db *db.Database) (*Authenticator, error) {
 	}
 
 	auth := &Authenticator{
-		DB:   db,
-		jwks: set,
+		UserService: userService,
+		jwks:        set,
+		cancelRefresh: cancel,
 	}
 
 	// Refresh JWKS in the background
 	go auth.refreshJwks(ctx, jwksURL)
 
 	return auth, nil
+}
+
+// Shutdown stops the background JWKS refresh
+func (a *Authenticator) Shutdown() {
+	if a.cancelRefresh != nil {
+		a.cancelRefresh()
+	}
 }
 
 func (a *Authenticator) refreshJwks(ctx context.Context, jwksURL string) {
@@ -73,37 +84,43 @@ func (a *Authenticator) AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// parts := strings.Split(authHeader, " ")
-		// if len(parts) != 2 || parts[0] != "Bearer" {
-		// 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid Authorization header format"})
-		// 	return
-		// }
+		parts := strings.Split(authHeader, " ")
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid Authorization header format"})
+			return
+		}
 
-		// token, err := jwt.ParseString(parts[1], jwt.WithKeySet(a.jwks))
-		// if err != nil {
-		// 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-		// 	return
-		// }
+		token, err := jwt.ParseString(parts[1], jwt.WithKeySet(a.jwks))
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			return
+		}
 
-		// email, ok := token.Get("email")
-		// if !ok {
-		// 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Email claim not found in token"})
-		// 	return
-		// }
+		email, ok := token.Get("email")
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Email claim not found in token"})
+			return
+		}
 
-		// emailStr, ok := email.(string)
-		// if !ok {
-		// 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid email claim type"})
-		// 	return
-		// }
+		emailStr, ok := email.(string)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid email claim type"})
+			return
+		}
 
-		emailStr := "john@gmail.com" // For testing purposes, replace with actual email from token
+		// attempt to read role from token claim as well
+		var roleFromToken string
+		if roleVal, ok := token.Get("role"); ok {
+			if rs, ok := roleVal.(string); ok {
+				roleFromToken = rs
+			}
+		}
 
-		user, err := a.DB.GetUserByEmail(emailStr)
+		user, err := a.UserService.GetUserByEmail(emailStr)
 		if err != nil {
 			// If user not found, create a new user
 			if err.Error() == "sql: no rows in result set" {
-				user, err = a.DB.CreateUser(emailStr)
+				user, err = a.UserService.CreateUser(emailStr)
 				if err != nil {
 					c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 					return
@@ -114,9 +131,15 @@ func (a *Authenticator) AuthMiddleware() gin.HandlerFunc {
 			}
 		}
 
-		// Store the user in the context
+		// override role if claim provided
+		if roleFromToken != "" {
+			user.Role = models.UserRole(roleFromToken)
+		}
 
+		// Store the user in the context
 		c.Set(constants.ContextUserKey, user)
+		c.Set(constants.ContextUserEmailKey, user.Email)
+		c.Set(constants.ContextUserRoleKey, user.Role)
 
 		c.Next()
 

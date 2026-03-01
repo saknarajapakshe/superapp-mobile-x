@@ -2,10 +2,11 @@
 package main
 
 import (
+	"leave-app/internal/db"
+	"leave-app/internal/handlers"
+	"leave-app/internal/service"
+	"leave-app/pkg/auth"
 	"log"
-	"lsf-leave-backend/internal/db"
-	"lsf-leave-backend/internal/handlers"
-	"lsf-leave-backend/pkg/auth"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -29,8 +30,11 @@ func main() {
 		log.Fatalf("Could not run database migrations: %v", err)
 	}
 
+	// Initialize services
+	userService := service.NewUserService(database)
+
 	// Initialize authenticator
-	authenticator, err := auth.New(database)
+	authenticator, err := auth.New(userService)
 	if err != nil {
 		log.Fatalf("Failed to initialize authenticator: %v", err)
 	}
@@ -43,7 +47,7 @@ func main() {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, PATCH, DELETE")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
@@ -54,26 +58,21 @@ func main() {
 	})
 
 	// Initialize handlers
-	h := handlers.New(database)
+	h := handlers.NewHandler(database)
 
 	// Setup routes
 	api := r.Group("/api")
 	api.Use(authenticator.AuthMiddleware())
 	{
 		api.GET("/me", h.GetCurrentUser)
-		api.GET("/users", h.GetUsers)
-		api.PUT("/admin/allowances", h.UpdateAllowances)
+		api.GET("/users", h.GetAllUsers)
+		api.PUT("/admin/allowances", h.UpdateDefaultAllowances)
 		api.PUT("/users/:id/role", h.UpdateUserRole)
 		api.GET("/leaves", h.GetLeaves)
-		api.GET("/leaves/:id", h.GetLeaveByIDHandler)
+		api.GET("/leaves/:id", h.GetLeaveByID)
 		api.POST("/leaves", h.CreateLeave)
-		api.PUT("/leaves/:id", h.UpdateLeave)  // admin only - update status and approver comment
-		api.PATCH("/leaves/:id", h.UpdateLeaveDates) // user can update dates before approval
+		api.PUT("/leaves/:id", h.UpdateLeave) // Unified endpoint with RBAC for dates and status
 		api.DELETE("/leaves/:id", h.DeleteLeave)
-		api.POST("/leaves/:id/approve", h.ApproveLeave)
-		api.POST("/leaves/:id/reject", h.RejectLeave)
-		api.GET("/leaves/:id/days", h.GetLeaveDays)
-		api.PUT("/leaves/:id/days/:dayId", h.UpdateLeaveDay) // Update half-day status of a specific leave(one day)
 		api.GET("/holidays", h.GetHolidays)
 	}
 

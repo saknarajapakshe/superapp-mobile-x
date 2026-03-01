@@ -140,13 +140,13 @@ paths:
 
   /api/leaves:
     get:
-      summary: Get leave requests
-      description: Returns leave requests. Regular users see their own leaves, admins see all leaves.
+      summary: Get leave requests with leave days
+      description: Returns leave requests with their leave days included. Regular users see their own leaves, admins see all leaves.
       tags:
         - Leave
       responses:
         "200":
-          description: List of leave requests
+          description: List of leave requests with leave days
           content:
             application/json:
               schema:
@@ -158,7 +158,7 @@ paths:
 
     post:
       summary: Create leave request
-      description: Submit a new leave request. Automatically calculates weekdays and excludes weekends.
+      description: Submit a new leave request (single-day or multi-day). For single-day leaves, you can specify isHalfDay and halfDayPeriod. Automatically calculates weekdays and excludes weekends.
       tags:
         - Leave
       requestBody:
@@ -175,7 +175,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Leave"
         "400":
-          description: Invalid request (e.g., invalid date range, only weekends selected, invalid date format)
+          description: Invalid request (e.g., invalid date range, only weekends selected, invalid date format, invalid half-day parameters)
           content:
             application/json:
               schema:
@@ -190,13 +190,16 @@ paths:
                 invalidDateFormat:
                   value:
                     error: Invalid start date format
+                invalidHalfDay:
+                  value:
+                    error: Half-day parameters can only be used for single-day leaves
         "500":
           $ref: "#/components/responses/InternalError"
 
   /api/leaves/{id}:
     get:
       summary: Get leave by ID
-      description: Returns a specific leave request by ID. Users can only view their own leaves, admins can view all.
+      description: Returns a specific leave request by ID with leave days included. Users can only view their own leaves, admins can view all.
       tags:
         - Leave
       parameters:
@@ -208,7 +211,7 @@ paths:
             type: string
       responses:
         "200":
-          description: Leave details
+          description: Leave details with leave days
           content:
             application/json:
               schema:
@@ -225,40 +228,14 @@ paths:
           $ref: "#/components/responses/InternalError"
 
     put:
-      summary: Update leave status
-      description: Update leave request status (Admin only)
-      tags:
-        - Admin
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Leave ID
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateLeaveStatusRequest"
-      responses:
-        "200":
-          description: Leave updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Leave"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "500":
-          $ref: "#/components/responses/InternalError"
+      summary: Update leave (dates and/or status)
+      description: |
+        Update a leave request. This endpoint supports two types of updates:
+        - **Date/half-day updates** (owner of pending leaves or admin): Modify startDate/endDate and half-day settings
+        - **Status updates** (admin only): Change status to approved/rejected with an optional comment
 
-    patch:
-      summary: Partially update leave dates
-      description: Update startDate and/or endDate for a pending leave (owner or admin). Server updates leave_days accordingly.
+        When updating dates for single-day leaves, you can include `isHalfDay` and `halfDayPeriod`.
+        The server recalculates `days` array and `totalLeaveDays` when dates change.
       tags:
         - Leave
       parameters:
@@ -273,10 +250,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateLeaveDatesRequest"
+              $ref: "#/components/schemas/UpdateLeaveRequest"
       responses:
         "200":
-          description: Leave dates updated successfully
+          description: Leave dates/half-day updated successfully
           content:
             application/json:
               schema:
@@ -287,6 +264,12 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           description: Leave not found or not editable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Invalid half-day update (e.g., isHalfDay provided for multi-day leave)
           content:
             application/json:
               schema:
@@ -324,163 +307,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /api/leaves/{id}/approve:
-    post:
-      summary: Approve leave request
-      description: Approve a pending leave request (Admin only)
-      tags:
-        - Admin
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Leave ID
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                comment:
-                  type: string
-                  nullable: true
-                  description: Optional approver comment
-      responses:
-        "200":
-          description: Leave approved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Leave"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/leaves/{id}/reject:
-    post:
-      summary: Reject leave request
-      description: Reject a pending leave request (Admin only)
-      tags:
-        - Admin
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Leave ID
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                comment:
-                  type: string
-                  nullable: true
-                  description: Optional rejection reason
-      responses:
-        "200":
-          description: Leave rejected successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Leave"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/leaves/{id}/days:
-    get:
-      summary: Get leave days
-      description: Returns all leave day records for a specific leave request
-      tags:
-        - Leave
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Leave ID
-          schema:
-            type: string
-      responses:
-        "200":
-          description: List of leave days
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/LeaveDay"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          description: Leave not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/leaves/{id}/days/{dayId}:
-    put:
-      summary: Update leave day
-      description: |
-        Update half-day status for a specific leave day (only for pending leaves, owner or admin).
-        Note: day-level updates are allowed only when the parent leave covers a single working day — otherwise the request returns 400.
-      tags:
-        - Leave
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Leave ID
-          schema:
-            type: string
-        - name: dayId
-          in: path
-          required: true
-          description: Leave Day ID
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateLeaveDayRequest"
-      responses:
-        "200":
-          description: Leave day updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LeaveDay"
-        "400":
-          description: Bad request (not pending, validation failed, or multi-day leave)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                singleDayOnly:
-                  value:
-                    error: "leave-day updates allowed only for single-day leaves"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          description: Leave or leave day not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  # Note: individual status/approve/reject endpoints were consolidated into PUT /api/leaves/{id}
 
   /api/holidays:
     get:
@@ -566,6 +393,7 @@ components:
         - reason
         - status
         - createdAt
+        - days
       properties:
         id:
           type: string
@@ -596,9 +424,10 @@ components:
           description: Leave end date (YYYY-MM-DD)
           example: "2026-02-22"
         totalLeaveDays:
-          type: integer
-          description: Total weekdays (excluding weekends) in leave period
-          example: 3
+          type: number
+          format: float
+          description: Total weekdays (excluding weekends) in leave period (can be fractional for half days)
+          example: 3.5
         reason:
           type: string
           description: Reason for leave
@@ -618,6 +447,27 @@ components:
           format: date-time
           description: Timestamp when leave was created
           example: "2026-02-18T10:30:00Z"
+        days:
+          type: array
+          description: Array of individual leave days (one entry per weekday in the leave period)
+          items:
+            $ref: "#/components/schemas/LeaveDay"
+          example:
+            - id: "550e8400-e29b-41d4-a716-446655440002"
+              leaveId: "550e8400-e29b-41d4-a716-446655440001"
+              date: "2026-02-20"
+              isHalfDay: false
+              halfDayPeriod: null
+            - id: "550e8400-e29b-41d4-a716-446655440003"
+              leaveId: "550e8400-e29b-41d4-a716-446655440001"
+              date: "2026-02-21"
+              isHalfDay: false
+              halfDayPeriod: null
+            - id: "550e8400-e29b-41d4-a716-446655440004"
+              leaveId: "550e8400-e29b-41d4-a716-446655440001"
+              date: "2026-02-22"
+              isHalfDay: false
+              halfDayPeriod: null
 
     CreateLeaveRequest:
       type: object
@@ -640,12 +490,21 @@ components:
         endDate:
           type: string
           format: date
-          description: Leave end date (YYYY-MM-DD)
-          example: "2026-02-22"
+          description: Leave end date (YYYY-MM-DD). For single-day leaves, should be same as startDate.
+          example: "2026-02-20"
         reason:
           type: string
           description: Reason for leave
-          example: "Family vacation"
+          example: "Medical appointment"
+        isHalfDay:
+          type: boolean
+          description: Optional - Whether this is a half-day leave (only valid for single-day leaves where startDate equals endDate)
+          example: true
+        halfDayPeriod:
+          type: string
+          enum: [morning, evening]
+          description: Optional - Which half of the day (only valid when isHalfDay is true)
+          example: "morning"
 
     UpdateAllowancesRequest:
       type: object
@@ -663,21 +522,7 @@ components:
           description: Casual leave allowance (days)
           example: 5
 
-    UpdateLeaveStatusRequest:
-      type: object
-      required:
-        - status
-      properties:
-        status:
-          type: string
-          enum: [pending, approved, rejected]
-          description: New status for the leave
-          example: "approved"
-        comment:
-          type: string
-          nullable: true
-          description: Optional comment
-          example: "Approved - enjoy"
+    # Note: `UpdateLeaveStatusRequest` removed — status updates are handled via `UpdateLeaveRequest`.
 
     UpdateUserRoleRequest:
       type: object
@@ -689,21 +534,6 @@ components:
           enum: [user, admin]
           description: New role for the user
           example: "admin"
-
-    UpdateLeaveDayRequest:
-      type: object
-      required:
-        - isHalfDay
-      properties:
-        isHalfDay:
-          type: boolean
-          description: Whether this is a half-day leave
-          example: true
-        isMorning:
-          type: boolean
-          nullable: true
-          description: If half-day, whether it's morning (true) or afternoon (false). Must be null if isHalfDay is false.
-          example: true
 
     LeaveDay:
       type: object
@@ -729,28 +559,50 @@ components:
         isHalfDay:
           type: boolean
           description: Whether this is a half-day leave
-          example: false
-        isMorning:
-          type: boolean
+          example: true
+        halfDayPeriod:
+          type: string
+          enum: [morning, evening]
           nullable: true
-          description: If half-day, whether it's morning (true) or afternoon (false). Only relevant when isHalfDay is true.
-          example: null
+          description: If half-day, whether it's morning or evening. Only relevant when isHalfDay is true.
+          example: "morning"
 
-    UpdateLeaveDatesRequest:
+    UpdateLeaveRequest:
       type: object
       minProperties: 1
       additionalProperties: false
+      description: |
+        Unified request to update a leave. Can be used to update the leave date range (owner or admin)
+        and/or to update the leave status and comment (admin only). When updating dates,
+        single-day leaves may include `isHalfDay` and `halfDayPeriod`.
       properties:
         startDate:
           type: string
           format: date
-          description: New start date (YYYY-MM-DD)
           example: "2026-02-21"
         endDate:
           type: string
           format: date
-          description: New end date (YYYY-MM-DD)
           example: "2026-02-23"
+        isHalfDay:
+          type: boolean
+          description: Allowed only when startDate == endDate
+          example: true
+        halfDayPeriod:
+          type: string
+          enum: [morning, evening]
+          nullable: true
+          example: "morning"
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+          description: New status for the leave (admin only)
+          example: "approved"
+        comment:
+          type: string
+          nullable: true
+          description: Optional comment from approver (admin only)
+          example: "Approved - enjoy"
 
     Holiday:
       type: object

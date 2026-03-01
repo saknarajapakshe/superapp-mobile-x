@@ -1,83 +1,83 @@
-// internal/models/models.go
 package models
 
 import "time"
 
-type Allowance struct {
-	Sick   int `json:"sick"`
-	Annual int `json:"annual"`
-	Casual int `json:"casual"`
+type User struct {
+    ID         string     `json:"id"`
+    Email      string     `json:"email"`
+    Role       UserRole   `json:"role"`
+    Allowances Allowances `json:"allowances"`
+	CreatedAt  time.Time  `json:"createdAt"`
 }
 
-type User struct {
-	ID          string    `json:"id"`
-	Email       string    `json:"email"`
-	Role        string    `json:"role"`
-	Allowances  Allowance `json:"allowances"`
-	CreatedAt   time.Time `json:"-"` // Exclude from JSON responses
+type Allowances struct {
+    Sick   int `json:"sick"`
+    Annual int `json:"annual"`
+    Casual int `json:"casual"`
 }
 
 type Leave struct {
-	ID              string    `json:"id"`
-	UserID          string    `json:"userId"`
-	UserEmail       string    `json:"userEmail,omitempty"` // Used for GET requests
-	Type            string    `json:"type"`
-	StartDate       string    `json:"startDate"`
-	EndDate         string    `json:"endDate"`
-	TotalLeaveDays  int       `json:"totalLeaveDays"`
-	Reason          string    `json:"reason"`
-	Status          string    `json:"status"`
-	ApproverComment *string   `json:"approverComment,omitempty"`
-	CreatedAt       time.Time `json:"createdAt"`
+    ID              string      `json:"id"`
+    UserID          string      `json:"userId"`
+    UserEmail       string      `json:"userEmail,omitempty"`
+    Type            LeaveType   `json:"type"`
+    StartDate       string      `json:"startDate"`
+    EndDate         string      `json:"endDate"`
+    TotalLeaveDays  float64     `json:"totalLeaveDays"`
+    Reason          string      `json:"reason"`
+    Status          LeaveStatus `json:"status"`
+    ApproverComment *string     `json:"approverComment"`
+    CreatedAt       time.Time   `json:"createdAt"`
+    Days            []LeaveDay  `json:"days"`
 }
 
 type LeaveDay struct {
-	ID      string    `json:"id"`
-	LeaveID string    `json:"leaveId"`
-	Date    time.Time `json:"date"`
-	IsHalfDay bool    `json:"isHalfDay"`
-	IsMorning *bool   `json:"isMorning,omitempty"` // Only relevant if IsHalfDay is true
+    ID             string         `json:"id"`
+    LeaveID        string         `json:"leaveId"`
+    Date           string         `json:"date"`
+    IsHalfDay      bool           `json:"isHalfDay"`
+    HalfDayPeriod  *HalfDayPeriod `json:"halfDayPeriod"`
 }
 
-type Holiday struct {
-	ID   string `json:"id"`
-	Date string `json:"date"`
-	Name string `json:"name"`
-}
-
-// For POST /api/leaves
 type CreateLeaveRequest struct {
-	Type      string `json:"type" binding:"required"`
-	StartDate string `json:"startDate" binding:"required"`
-	EndDate   string `json:"endDate" binding:"required"`
-	Reason    string `json:"reason" binding:"required"`
+    Type           LeaveType      `json:"type" binding:"required"`
+    StartDate      string         `json:"startDate" binding:"required"`
+    EndDate        string         `json:"endDate" binding:"required"`
+    Reason         string         `json:"reason" binding:"required"`
+    IsHalfDay      *bool          `json:"isHalfDay"`
+    HalfDayPeriod  *HalfDayPeriod `json:"halfDayPeriod"`
 }
 
-// For PUT /api/admin/allowances
-type UpdateAllowancesRequest struct {
-	Sick   int `json:"sick"`
-	Annual int `json:"annual"`
-	Casual int `json:"casual"`
+// UpdateLeaveRequest represents a unified request to update leave details
+// Regular users can update dates/half-day fields for their own pending leaves
+// Admins can update status/comment fields for any leave
+type UpdateLeaveRequest struct {
+    // Date fields (user can update for their own pending leaves)
+    StartDate     *string        `json:"startDate"`
+    EndDate       *string        `json:"endDate"`
+    IsHalfDay     *bool          `json:"isHalfDay"`
+    HalfDayPeriod *HalfDayPeriod `json:"halfDayPeriod"`
+    
+    // Status fields (admin only)
+    Status        *LeaveStatus `json:"status"`
+    Comment       *string      `json:"comment"`
 }
 
-// For PUT /api/leaves/:id/approve or /reject
-type UpdateLeaveStatusRequest struct {
-	Status  string  `json:"status"`
-	Comment *string `json:"comment,omitempty"`
-}
-
-// For PUT /api/users/:id/role
+// UpdateUserRoleRequest represents the request to update user role
 type UpdateUserRoleRequest struct {
-	Role string `json:"role" binding:"required"`
+    Role UserRole `json:"role" binding:"required"`
 }
 
-type UpdateLeaveDatesRequest struct {
-	StartDate *string `json:"startDate,omitempty"`
-	EndDate   *string `json:"endDate,omitempty"`
+// UpdateAllowancesRequest represents the request to update default allowances
+type UpdateAllowancesRequest struct {
+    Sick   *int `json:"sick"`
+    Annual *int `json:"annual"`
+    Casual *int `json:"casual"`
 }
 
-// For PUT /api/leaves/:leaveId/days/:dayId
-type UpdateLeaveDayRequest struct {
-    IsHalfDay bool  `json:"isHalfDay"`
-    IsMorning *bool `json:"isMorning,omitempty"`
+// Holiday represents a public holiday
+type Holiday struct {
+    ID   string `json:"id"`
+    Date string `json:"date"`
+    Name string `json:"name"`
 }
