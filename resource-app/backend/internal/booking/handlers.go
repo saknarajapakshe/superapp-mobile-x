@@ -148,23 +148,34 @@ func HandleUpdateBooking(svc *Service) gin.HandlerFunc {
 func HandleRescheduleBooking(svc *Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
+		user := auth.GetUserFromContext(c)
+		if user == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "User not authenticated"})
+			return
+		}
+
 		var req struct {
 			Start time.Time `json:"start" binding:"required"`
 			End   time.Time `json:"end" binding:"required"`
 		}
-		err := c.ShouldBindJSON(&req)
-		if err != nil {
+		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 			return
 		}
 
-		updated, err := svc.RescheduleBooking(id, req.Start, req.End)
+		updated, err := svc.RescheduleBooking(id, user.ID, user.Role, req.Start, req.End)
 		if err != nil {
 			switch {
 			case errors.Is(err, ErrBookingNotFound):
 				c.JSON(http.StatusNotFound, gin.H{"success": false, "error": ErrBookingNotFound.Error()})
 			case errors.Is(err, ErrRescheduleSlotConflict):
 				c.JSON(http.StatusConflict, gin.H{"success": false, "error": err.Error()})
+			case errors.Is(err, ErrForbidden):
+				c.JSON(http.StatusForbidden, gin.H{"success": false, "error": ErrForbidden.Error()})
+			case errors.Is(err, ErrInvalidTransition):
+				c.JSON(http.StatusUnprocessableEntity, gin.H{"success": false, "error": ErrInvalidTransition.Error()})
+			case errors.Is(err, ErrInvalidTimeRange):
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": ErrInvalidTimeRange.Error()})
 			default:
 				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to reschedule booking"})
 			}
@@ -178,11 +189,21 @@ func HandleRescheduleBooking(svc *Service) gin.HandlerFunc {
 func HandleCancelBooking(svc *Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
-		err := svc.CancelBooking(id)
+		user := auth.GetUserFromContext(c)
+		if user == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "User not authenticated"})
+			return
+		}
+
+		err := svc.CancelBooking(id, user.ID, user.Role)
 		if err != nil {
 			switch {
 			case errors.Is(err, ErrBookingNotFound):
 				c.JSON(http.StatusNotFound, gin.H{"success": false, "error": ErrBookingNotFound.Error()})
+			case errors.Is(err, ErrForbidden):
+				c.JSON(http.StatusForbidden, gin.H{"success": false, "error": ErrForbidden.Error()})
+			case errors.Is(err, ErrInvalidTransition):
+				c.JSON(http.StatusUnprocessableEntity, gin.H{"success": false, "error": ErrInvalidTransition.Error()})
 			default:
 				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Failed to cancel booking"})
 			}

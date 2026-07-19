@@ -26,29 +26,20 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     setError(null);
     try {
-      // 1. Get identity from bridge
-      const tokenData = await bridge.getToken();
-      const userEmail = tokenData.email;
-
-      if (!userEmail) {
-        throw new Error("Could not identify user from token");
-      }
-
-      // 2. Fetch all users from API
-      const response = await userApi.getUsers();
-
+      const response = await userApi.getMe();
       if (response.success && response.data) {
-        setAllUsers(response.data);
-        
-        // 3. Find matching current user
-        const me = response.data.find(u => u.email === userEmail);
-        if (me) {
-          setCurrentUser(me);
+        setCurrentUser(response.data);
+
+        if (response.data.role === UserRole.ADMIN) {
+          const allResponse = await userApi.getUsers();
+          if (allResponse.success && allResponse.data) {
+            setAllUsers(allResponse.data);
+          }
         } else {
-          console.warn("User not found in user list despite valid token");
+          setAllUsers([]);
         }
       } else {
-        throw new Error(response.error || "Failed to fetch users");
+        throw new Error(response.error || "Failed to fetch current user");
       }
   } catch (err: unknown) {
     console.error("UserProvider error:", err);

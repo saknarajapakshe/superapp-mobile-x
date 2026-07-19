@@ -7,6 +7,15 @@ import { User, UserRole } from './types';
  * These are moved from the global api/client.ts as part of DDD refactoring.
  */
 export const userApi = {
+  getMe: async (): Promise<ApiResponse<User>> => {
+    try {
+      const response = await httpClient.get<{ data: User }>('/users/me');
+      return { success: true, data: response.data.data };
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Failed to fetch current user' };
+    }
+  },
+
   getUsers: async (): Promise<ApiResponse<User[]>> => {
     try {
       const response = await httpClient.get<{ data: User[] }>('/users');

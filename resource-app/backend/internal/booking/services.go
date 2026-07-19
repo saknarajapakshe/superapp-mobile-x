@@ -249,11 +249,51 @@ func (s *Service) proposeBooking(booking *Booking, userID string, userRole usr.R
 	})
 }
 
-func (s *Service) RescheduleBooking(id string, newStart, newEnd time.Time) (*Booking, error) {
+func (s *Service) RescheduleBooking(id, userID string, userRole usr.Role, newStart, newEnd time.Time) (*Booking, error) {
+	booking, err := s.repo.GetBookingByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if booking.Status == StatusCancelled || booking.Status == StatusCompleted || booking.Status == StatusRejected {
+		return nil, ErrInvalidTransition
+	}
+
+	now := time.Now()
+	if !newStart.After(now) || !newEnd.After(now) || !newStart.Before(newEnd) {
+		return nil, ErrInvalidTimeRange
+	}
+
+	if userRole != usr.RoleAdmin {
+		hasPermission, permErr := s.permissionSvc.HasApprovePermission(userID, booking.ResourceID)
+		if permErr != nil {
+			return nil, permErr
+		}
+		if !hasPermission {
+			return nil, ErrForbidden
+		}
+	}
+
 	return s.repo.RescheduleBooking(id, newStart, newEnd)
 }
 
-func (s *Service) CancelBooking(id string) error {
+func (s *Service) CancelBooking(id, userID string, userRole usr.Role) error {
+	booking, err := s.repo.GetBookingByID(id)
+	if err != nil {
+		return err
+	}
+
+	if booking.UserID != userID && userRole != usr.RoleAdmin {
+		return ErrForbidden
+	}
+
+	if booking.Status == StatusCancelled {
+		return nil
+	}
+	if booking.Status == StatusCompleted || booking.Status == StatusRejected {
+		return ErrInvalidTransition
+	}
+
 	return s.repo.CancelBooking(id)
 }
 
